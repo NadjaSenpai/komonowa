@@ -1,0 +1,2 @@
+# 初期管理者の作成にだけ使う一時的なトークン（32文字以上のランダム値）
+SETUP_TOKEN=change-me-to-a-long-random-value-0123456789

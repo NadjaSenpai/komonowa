@@ -1,0 +1,90 @@
+# 運用手順：バックアップと復元
+
+Wiki のデータは2か所にあります。両方をそろえて保管・復元してください。
+
+| 保存先 | 内容 |
+| --- | --- |
+| D1 `wiki-db` | 利用者（パスワードハッシュ）、セッション、招待、記事、全履歴、タグ、添付のメタデータ |
+| R2 `wiki-files` | 添付ファイル本体（キー: `attachments/<記事ID>/<添付ID>`） |
+
+バックアップには全記事と添付、パスワードハッシュが含まれます。暗号化されたストレージなど、メンバー以外が読めない場所に保管してください。`backups/` は `.gitignore` 済みです。
+
+## 手動バックアップ
+
+前提: `npx wrangler login` 済みで、`wrangler.jsonc` の `database_id` が本番のものになっていること。
+
+```sh
+npm run backup:remote
+# → backups/<日時>/d1.sql, manifest.json, r2/attachments/...
+```
+
+スクリプト（`scripts/backup.mjs`）は次を順に行います。
+
+1. `wrangler d1 export wiki-db --remote --output d1.sql` でスキーマとデータを SQL として書き出す
+2. D1 の `attachments` テーブルから R2 キーの一覧を取得する
+3. 各オブジェクトを `wrangler r2 object get` で取得し、`manifest.json` に一覧を記録する
+
+注意:
+
+- D1 のエクスポート中はデータベースへの他のリクエストが待たされます。利用の少ない時間帯に実行してください
+- 添付は1件ずつ取得するので、件数が多いと時間がかかります
+- バックアップ中にアップロードされた添付は含まれないことがあります。整合性が必要なら、作業時間を告知してから実行してください
+- ローカル開発データで試すときは `npm run backup:local` を使います
+
+## D1 の復元
+
+### A. 直近30日以内の時点に戻す（Time Travel）
+
+D1 は過去30日間の任意の時点に戻せます。誤操作の取り消しにはこちらが最速です。
+
+```sh
+npx wrangler d1 time-travel info wiki-db --timestamp=2026-11-11T09:00:00+09:00   # その時点のブックマークを確認
+npx wrangler d1 time-travel restore wiki-db --timestamp=2026-11-11T09:00:00+09:00
+```
+
+その時点以降の変更（記事・利用者・セッション）はすべて失われます。R2 の添付は戻らないため、復元後にその時点以降の添付は D1 から参照されない孤立したオブジェクトになります（表示には影響しません）。
+
+### B. バックアップの SQL から復元する
+
+`d1.sql` にはスキーマ（`d1_migrations` を含む）とデータが入っているので、**空の** データベースに流し込みます。
+
+```sh
+npx wrangler d1 create wiki-db-restore
+# wrangler.jsonc の database_id を新しい ID に変更（database_name も合わせる）
+npx wrangler d1 execute wiki-db-restore --remote --file backups/<日時>/d1.sql
+```
+
+既存のデータベースに直接流すと、テーブルが既にあるためエラーになります。新しいデータベースを作り、確認してから `wrangler.jsonc` を切り替えてデプロイしてください。
+
+## R2 の復元
+
+D1 を戻したあとに実行します（D1 の添付メタデータとキーが一致している必要があります）。
+
+```sh
+npm run restore:r2 -- backups/<日時> --remote
+```
+
+`manifest.json` のキーと Content-Type のとおりに `wrangler r2 object put` で書き戻します。同じキーのオブジェクトは上書きされます。
+
+## 復元後の確認
+
+1. 管理者でログインできる（セッションは復元時点のものに戻るため、全員が再ログインになる場合があります）
+2. 記事一覧の件数、任意の記事の履歴が期待どおり
+3. 添付付きの記事を開き、画像の表示とファイルのダウンロードができる
+
+## 定期的な確認
+
+- 月1回程度、`npm run backup:remote` を実行し、ローカル環境（`.wrangler/` を退避した空の状態）へ復元できることを確かめると安心です。手順はローカルなら次のとおりです
+
+```sh
+npx wrangler d1 execute wiki-db --local --file backups/<日時>/d1.sql
+npm run restore:r2 -- backups/<日時> --local
+npm run dev
+```
+
+## その他の運用
+
+- **パスワードを忘れた**: 管理画面の「再設定リンク」で発行し、本人に安全な方法で渡す（24時間有効・一回限り。再発行すると古いリンクは無効）
+- **退職・異動**: 管理画面で「無効化」。即座に全セッションが切断され、記事と履歴は残る
+- **管理者を追加**: 「管理者」権限で招待するか、既存メンバーの権限を変更する。有効な管理者が0人になる操作はできない
+- **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る
