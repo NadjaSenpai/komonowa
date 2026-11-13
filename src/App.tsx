@@ -79,7 +79,7 @@ function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand">チーム Wiki</Link>
+        <Link to="/" className="brand">komonowa</Link>
         <nav>
           <NavLink to="/" end>記事</NavLink>
           <NavLink to="/articles/new">新規作成</NavLink>
