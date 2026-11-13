@@ -135,27 +135,30 @@ export function AdminPage() {
           </select>
           <button type="submit">招待リンクを発行</button>
         </form>
-        <table>
-          <thead><tr><th>メール</th><th>権限</th><th>状態</th><th>期限</th><th>発行者</th><th /></tr></thead>
-          <tbody>
-            {invites.map((i) => (
-              <tr key={i.id}>
-                <td>{i.email}</td>
-                <td>{i.role === "admin" ? "管理者" : "メンバー"}</td>
-                <td>{inviteStatus(i)}</td>
-                <td>{formatDate(i.expires_at)}</td>
-                <td>{i.created_by_name}</td>
-                <td>
-                  {inviteStatus(i) === "未使用" && (
-                    <button type="button" className="secondary small" onClick={() => run(() => api.del(`/admin/invites/${encodeURIComponent(i.id)}`))}>
-                      取り消し
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {invites.length === 0 && <p className="muted small">発行中の招待はありません</p>}
+        {invites.length > 0 && (
+          <table>
+            <thead><tr><th>メール</th><th>権限</th><th>状態</th><th>期限</th><th>発行者</th><th /></tr></thead>
+            <tbody>
+              {invites.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.email}</td>
+                  <td>{i.role === "admin" ? "管理者" : "メンバー"}</td>
+                  <td>{inviteStatus(i)}</td>
+                  <td>{formatDate(i.expires_at)}</td>
+                  <td>{i.created_by_name}</td>
+                  <td>
+                    {inviteStatus(i) === "未使用" && (
+                      <button type="button" className="secondary small" onClick={() => run(() => api.del(`/admin/invites/${encodeURIComponent(i.id)}`))}>
+                        取り消し
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section>
@@ -165,12 +168,13 @@ export function AdminPage() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className={u.status === "disabled" ? "muted" : ""}>
-                <td>{u.name}</td>
+                <td>{u.name}{u.id === user?.id && <span className="muted small">（自分）</span>}</td>
                 <td>{u.email}</td>
                 <td>
                   <select
                     value={u.role}
                     disabled={u.id === user?.id}
+                    title={u.id === user?.id ? "自分の権限は変更できません" : undefined}
                     aria-label={`${u.name} の権限`}
                     onChange={(e) => run(() => api.patch(`/admin/users/${u.id}`, { role: e.target.value }))}
                   >
@@ -180,24 +184,26 @@ export function AdminPage() {
                 </td>
                 <td>{u.status === "active" ? "有効" : "無効"}</td>
                 <td>{formatDate(u.created_at)}</td>
-                <td className="actions">
-                  {u.id !== user?.id && u.status === "active" && (
-                    <>
-                      <button type="button" className="secondary small" onClick={() => resetLink(u)}>再設定リンク</button>
-                      <button
-                        type="button"
-                        className="danger small"
-                        onClick={() => confirm(`${u.name} さんを無効化しますか？ログイン中のセッションも切断されます。記事は残ります。`) && run(() => api.patch(`/admin/users/${u.id}`, { status: "disabled" }))}
-                      >
-                        無効化
+                <td>
+                  <div className="actions">
+                    {u.id !== user?.id && u.status === "active" && (
+                      <>
+                        <button type="button" className="secondary small" onClick={() => resetLink(u)}>再設定リンク</button>
+                        <button
+                          type="button"
+                          className="danger small"
+                          onClick={() => confirm(`${u.name} さんを無効化しますか？ログイン中のセッションも切断されます。記事は残ります。`) && run(() => api.patch(`/admin/users/${u.id}`, { status: "disabled" }))}
+                        >
+                          無効化
+                        </button>
+                      </>
+                    )}
+                    {u.status === "disabled" && (
+                      <button type="button" className="secondary small" onClick={() => run(() => api.patch(`/admin/users/${u.id}`, { status: "active" }))}>
+                        再有効化
                       </button>
-                    </>
-                  )}
-                  {u.status === "disabled" && (
-                    <button type="button" className="secondary small" onClick={() => run(() => api.patch(`/admin/users/${u.id}`, { status: "active" }))}>
-                      再有効化
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -208,59 +214,68 @@ export function AdminPage() {
       <section>
         <h2>ごみ箱</h2>
         {trash.length === 0 && <p className="muted small">削除された記事はありません</p>}
-        <table>
-          <tbody>
-            {trash.map((a) => (
-              <tr key={a.id}>
-                <td>{a.title}</td>
-                <td>{formatDate(a.deleted_at)} {a.deleted_by_name} が削除</td>
-                <td className="actions">
-                  <button type="button" className="small" onClick={() => run(() => api.post(`/admin/trash/${a.id}/restore`))}>復元</button>
-                  <button
-                    type="button"
-                    className="danger small"
-                    onClick={() => confirm(`「${a.title}」を完全に削除しますか？履歴と添付ファイルも消え、元に戻せません。`) && run(() => api.del(`/admin/trash/${a.id}`))}
-                  >
-                    完全削除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {trash.length > 0 && (
+          <table>
+            <tbody>
+              {trash.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.title}</td>
+                  <td>{formatDate(a.deleted_at)} {a.deleted_by_name} が削除</td>
+                  <td>
+                    <div className="actions">
+                      <button type="button" className="small" onClick={() => run(() => api.post(`/admin/trash/${a.id}/restore`))}>復元</button>
+                      <button
+                        type="button"
+                        className="danger small"
+                        onClick={() => confirm(`「${a.title}」を完全に削除しますか？履歴と添付ファイルも消え、元に戻せません。`) && run(() => api.del(`/admin/trash/${a.id}`))}
+                      >
+                        完全削除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section>
         <h2>タグ</h2>
-        <table>
-          <tbody>
-            {tags.map((t) => (
-              <tr key={t.id}>
-                <td>{t.name}</td>
-                <td>{t.count} 件</td>
-                <td className="actions">
-                  <button
-                    type="button"
-                    className="secondary small"
-                    onClick={() => {
-                      const name = prompt("新しいタグ名", t.name);
-                      if (name && name !== t.name) void run(() => api.patch(`/admin/tags/${t.id}`, { name }));
-                    }}
-                  >
-                    改名
-                  </button>
-                  <button
-                    type="button"
-                    className="danger small"
-                    onClick={() => confirm(`タグ「${t.name}」を削除しますか？記事からも外れます。`) && run(() => api.del(`/admin/tags/${t.id}`))}
-                  >
-                    削除
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {tags.length === 0 && <p className="muted small">タグはまだありません</p>}
+        {tags.length > 0 && (
+          <table>
+            <tbody>
+              {tags.map((t) => (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td>{t.count} 件</td>
+                  <td>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="secondary small"
+                        onClick={() => {
+                          const name = prompt("新しいタグ名", t.name);
+                          if (name && name !== t.name) void run(() => api.patch(`/admin/tags/${t.id}`, { name }));
+                        }}
+                      >
+                        改名
+                      </button>
+                      <button
+                        type="button"
+                        className="danger small"
+                        onClick={() => confirm(`タグ「${t.name}」を削除しますか？記事からも外れます。`) && run(() => api.del(`/admin/tags/${t.id}`))}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </div>
   );

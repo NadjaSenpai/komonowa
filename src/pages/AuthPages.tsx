@@ -9,6 +9,7 @@ function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="auth">
       <div className="card">
+        <p className="brand">komonowa</p>
         <h1>{title}</h1>
         {children}
       </div>
@@ -55,7 +56,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthCard title="チーム Wiki にログイン">
+    <AuthCard title="ログイン">
       {needsSetup && (
         <p className="notice">
           まだ管理者がいません。<Link to="/setup">初期設定</Link>から管理者を作成してください。

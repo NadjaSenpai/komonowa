@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate } from "../api";
+import { markdownToText } from "../markdown";
 
 interface ListItem {
   id: string;
@@ -68,7 +69,7 @@ export function ArticleListPage() {
     <div className="list-layout">
       <aside className="sidebar">
         <h2>タグ</h2>
-        <p className="muted small">複数選ぶとすべてを含む記事に絞り込みます</p>
+        <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
         <div className="tags">
           {tags.map((t) => (
             <button
@@ -85,9 +86,12 @@ export function ArticleListPage() {
         </div>
       </aside>
       <section>
+        <div className="list-heading">
+          <h1>記事</h1>
+        </div>
         <form onSubmit={submit} className="search">
-          <input type="search" placeholder="キーワードで検索（空白区切りで AND）" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="検索" />
-          <button type="submit">検索</button>
+          <input type="search" placeholder="キーワードで検索" title="空白で区切ると、すべてを含む記事を探します" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="検索" />
+          <button type="submit" className="secondary">検索</button>
         </form>
         {(q || selected.length > 0) && (
           <p className="small">
@@ -106,12 +110,12 @@ export function ArticleListPage() {
           {items?.map((a) => (
             <li key={a.id}>
               <Link to={`/articles/${a.id}`} className="title">{a.title}</Link>
-              <p className="excerpt">{a.excerpt.replace(/[#*`>_\-[\]()]/g, " ").slice(0, 120)}</p>
+              <p className="excerpt">{markdownToText(a.excerpt).slice(0, 120)}</p>
               <p className="meta">
                 {a.tags.map((t) => (
                   <button key={t} type="button" className="tag small" onClick={() => toggleTag(t)}>#{t}</button>
                 ))}
-                <span>{formatDate(a.updated_at)} · {a.updated_by_name}</span>
+                <span className="meta-item">{formatDate(a.updated_at)} · {a.updated_by_name}</span>
               </p>
             </li>
           ))}

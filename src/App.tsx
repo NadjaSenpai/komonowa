@@ -82,9 +82,8 @@ function Layout({ children }: { children: ReactNode }) {
         <Link to="/" className="brand">komonowa</Link>
         <nav>
           <NavLink to="/" end>記事</NavLink>
-          <NavLink to="/articles/new">新規作成</NavLink>
           {user?.role === "admin" && <NavLink to="/admin">管理</NavLink>}
-          <NavLink to="/account">{user?.name}</NavLink>
+          <NavLink to="/account" className="account" title="アカウント設定">{user?.name}</NavLink>
           <button
             type="button"
             className="link"
@@ -96,6 +95,7 @@ function Layout({ children }: { children: ReactNode }) {
             ログアウト
           </button>
         </nav>
+        <Link to="/articles/new" className="button small new-article">新しい記事</Link>
       </header>
       <main className="content">{children}</main>
     </div>

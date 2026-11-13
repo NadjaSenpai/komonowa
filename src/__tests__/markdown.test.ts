@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderMarkdown } from "../markdown";
+import { markdownToText, renderMarkdown } from "../markdown";
 
 describe("renderMarkdown", () => {
   it("Markdown を HTML にする", () => {
@@ -28,5 +28,20 @@ describe("renderMarkdown", () => {
 
   it("添付画像の参照は残す", () => {
     expect(renderMarkdown("![図](/api/attachments/abc)")).toContain('<img src="/api/attachments/abc" alt="図">');
+  });
+});
+
+describe("markdownToText", () => {
+  it("見出しを除き、記号を残したまま本文テキストにする", () => {
+    const text = markdownToText("## 概要\n\n困ったら **#dev-help** で聞いてね。\n\n- Node.js 22 以上\n- `npm install`");
+    expect(text).toBe("困ったら #dev-help で聞いてね。 Node.js 22 以上 npm install");
+  });
+
+  it("途中で切れた Markdown でも崩れない", () => {
+    expect(markdownToText("本文です。\n\n```bash\nnpm run d")).toBe("本文です。 npm run d");
+  });
+
+  it("HTML タグは文字として出さない", () => {
+    expect(markdownToText("<b>太字</b>と<script>alert(1)</script>本文")).toBe("太字と本文");
   });
 });

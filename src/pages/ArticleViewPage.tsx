@@ -81,7 +81,7 @@ export function ArticleViewPage() {
   }
 
   return (
-    <article>
+    <article className="article-page">
       <div className="article-head">
         <h1>{article.title}</h1>
         <div className="actions">
@@ -94,11 +94,11 @@ export function ArticleViewPage() {
         {article.tags.map((t) => (
           <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>#{t}</Link>
         ))}
-        <span>
-          第{article.version}版 · {formatDate(article.updated_at)} {article.updated_by_name} が更新 · 作成 {article.created_by_name}
-        </span>
+        <span className="meta-item">{formatDate(article.updated_at)} 更新（{article.updated_by_name}）</span>
+        <span className="meta-item">作成 {article.created_by_name}</span>
+        <span className="meta-item">第{article.version}版</span>
       </p>
-      <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="markdown article-body" dangerouslySetInnerHTML={{ __html: html }} />
 
       <section className="attachments">
         <h2>添付ファイル</h2>

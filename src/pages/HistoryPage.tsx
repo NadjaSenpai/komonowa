@@ -69,7 +69,7 @@ export function HistoryPage() {
 
   return (
     <div>
-      <h1>
+      <h1 className="history-title">
         変更履歴：<Link to={`/articles/${id}`}>{article.title}</Link>
       </h1>
       {error && <p className="error" role="alert">{error}</p>}
@@ -86,11 +86,13 @@ export function HistoryPage() {
                 <td>{formatDate(r.created_at)}</td>
                 <td>{r.edited_by_name}</td>
                 <td>{r.title}</td>
-                <td className="actions">
-                  <button type="button" className="secondary small" onClick={() => show(r.version)}>表示</button>
-                  {r.version !== article.version && (
-                    <button type="button" className="small" onClick={() => restore(r.version)}>復元</button>
-                  )}
+                <td>
+                  <div className="actions">
+                    <button type="button" className="secondary small" onClick={() => show(r.version)}>表示</button>
+                    {r.version !== article.version && (
+                      <button type="button" className="small" onClick={() => restore(r.version)}>復元</button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

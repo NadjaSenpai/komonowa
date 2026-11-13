@@ -18,6 +18,8 @@
     "restore:r2": "node scripts/restore-r2.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/noto-sans-jp": "^5.3.1",
     "dompurify": "^3.4.17",
     "hono": "^4.13.17",
     "marked": "^18.2.0",
