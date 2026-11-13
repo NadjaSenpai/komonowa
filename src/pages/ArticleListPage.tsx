@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate } from "../api";
 import { markdownToText } from "../markdown";
+import { tagWeight } from "../tagWeight";
 
 interface ListItem {
   id: string;
@@ -56,6 +57,10 @@ export function ArticleListPage() {
     setParams(p);
   }
 
+  const counts = tags.map((t) => t.count);
+  const minCount = Math.min(...counts);
+  const maxCount = Math.max(...counts);
+
   function toggleTag(name: string) {
     update({ tags: selected.includes(name) ? selected.filter((t) => t !== name) : [...selected, name] });
   }
@@ -70,16 +75,18 @@ export function ArticleListPage() {
       <aside className="sidebar">
         <h2>タグ</h2>
         <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
-        <div className="tags">
+        <div className="tags tag-cloud">
           {tags.map((t) => (
             <button
               key={t.id}
               type="button"
               className={selected.includes(t.name) ? "tag active" : "tag"}
+              style={{ "--w": tagWeight(t.count, minCount, maxCount).toFixed(2) } as CSSProperties}
               aria-pressed={selected.includes(t.name)}
+              aria-label={`${t.name}（${t.count}件）`}
               onClick={() => toggleTag(t.name)}
             >
-              {t.name} <span className="muted">{t.count}</span>
+              {t.name}<span className="count" aria-hidden="true">{t.count}</span>
             </button>
           ))}
           {tags.length === 0 && <p className="muted small">タグはまだありません</p>}

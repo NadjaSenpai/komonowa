@@ -8,3 +8,7 @@ backups/
 *.log
 # 以前の静的モック（実用版には含めない）
 wiki-mock/
+
+# design tooling
+.hallmark/
+.taste-skill/

@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
-    "@fontsource-variable/noto-sans-jp": "^5.3.1",
+    "@fontsource/line-seed-jp": "^5.3.2",
     "dompurify": "^3.4.17",
     "hono": "^4.13.17",
     "marked": "^18.2.0",

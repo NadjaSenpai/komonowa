@@ -2,7 +2,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 import { App } from "./App";
-import "@fontsource-variable/noto-sans-jp";
+import "@fontsource/line-seed-jp/400.css";
+import "@fontsource/line-seed-jp/700.css";
+import "@fontsource/line-seed-jp/800.css";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 
