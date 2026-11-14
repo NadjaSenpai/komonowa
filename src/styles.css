@@ -7,6 +7,8 @@
 @import url("./base.css");
 
 /* ---------- 基本 ---------- */
+/* スクロールバーの幅をいつも空けておく。短いページ（読み込み中など）と長いページを行き来しても、ヘッダーや本文が左右にずれない */
+html { scrollbar-gutter: stable; }
 body { line-height: 1.7; }
 a { color: var(--color-accent); }
 h1, h2, h3, .brand, .article-list .title { font-feature-settings: "palt"; }
