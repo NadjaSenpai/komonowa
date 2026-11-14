@@ -26,6 +26,7 @@ npm run backup:remote
 
 注意:
 
+- 一覧用の小さい画像（`<キー>.thumb`）はバックアップに含めません。復元後は元の画像を一覧に表示します
 - D1 のエクスポート中はデータベースへの他のリクエストが待たされます。利用の少ない時間帯に実行してください
 - 添付は1件ずつ取得するので、件数が多いと時間がかかります
 - バックアップ中にアップロードされた添付は含まれないことがあります。整合性が必要なら、作業時間を告知してから実行してください
@@ -89,7 +90,7 @@ npm run dev
 - **送信元ドメイン**: `wrangler.jsonc` の `vars.MAIL_FROM`（`komonowa@nadja.app`）。Email Sending の登録で `cf-bounce` サブドメインに MX・SPF・DKIM が入る。消すと送れなくなる
 - **退職・異動**: 管理画面で「無効化」。即座に全セッションが切断され、その人が送った未使用の招待も取り消される（降格でも同じ）。記事と履歴は残る
 - **管理者を追加**: 「管理者」権限で招待するか、既存メンバーの権限を変更する。有効な管理者が0人になる操作はできない
-- **所有者**: 最初の管理者。ほかの管理者からは降格・無効化できない。画面では譲れないので、譲るときは次のコマンドで（新しい所有者は有効な管理者であること。アドレスが一致しなければ何も変わらない）
+- **所有者**: 最初の管理者。ほかの管理者からは降格・無効化できない。画面では譲れないので（うっかり譲る事故を避けるため）、譲るときは次のコマンドで（新しい所有者は有効な管理者であること。アドレスが一致しなければ何も変わらない）
 
   ```sh
   npx wrangler d1 execute wiki-db --remote --command "UPDATE users SET is_owner = 0 WHERE is_owner = 1 AND EXISTS (SELECT 1 FROM users WHERE email = '新しい所有者のアドレス' AND role = 'admin' AND status = 'active'); UPDATE users SET is_owner = 1 WHERE email = '新しい所有者のアドレス' AND role = 'admin' AND status = 'active';"
@@ -102,4 +103,5 @@ npm run dev
   HASH=$(printf "%s" "<アドレス>" | openssl dgst -sha256 -binary | basenc --base64url | tr -d "=")
   npx wrangler d1 execute wiki-db --remote --command "DELETE FROM blocked_emails WHERE email_hash = '$HASH'"
   ```
-- **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る
+- **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る。マイグレーションを適用してからデプロイする（新しいコードが新しい列を読むため）
+- **期限切れの記録の掃除**: 毎日 03:00（JST）の cron（`wrangler.jsonc` の `triggers`）が、期限切れのセッション・メール変更の申し込み・1日より古い失敗の記録と、期限から30日たった招待・再設定のトークンを消す（`worker/cleanup.ts`）。実行の記録は Workers のログ（`observability` を有効にしている）で確認できる

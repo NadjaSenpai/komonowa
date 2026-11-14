@@ -78,6 +78,11 @@
 
 実HTTPの詳細ログはローカルの `.taste-skill/security-live-results.json`（Git対象外）に保存。秘密・セッション値は記録しない。
 
+## 追記（2026-11-15）
+
+- 本番（`https://komonowa.nadja.app/`）の HTML 応答に、`public/_headers` の CSP・`X-Frame-Options`・`X-Content-Type-Options`・`Referrer-Policy`・`X-Robots-Tag` が付いていることを `curl -I` で確認した。`Strict-Transport-Security` は `max-age=15552000` で、`includeSubDomains` は付いていなかった（ゾーン側の設定が優先されている可能性がある）。
+- 無効化・降格した管理者が送った未使用の招待が使えたため、取り消すようにした（`test/auth.test.ts`）。
+
 ## 再実行
 
 ```sh
