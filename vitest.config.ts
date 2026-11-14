@@ -32,7 +32,7 @@ export default defineConfig({
         // UI のロジック: DOM が必要なものを jsdom で（happy-dom は DOMPurify が正しく動かない）実行
         test: {
           name: "ui",
-          include: ["src/**/*.test.ts"],
+          include: ["src/**/*.test.ts", "shared/**/*.test.ts"],
           environment: "jsdom",
         },
       },

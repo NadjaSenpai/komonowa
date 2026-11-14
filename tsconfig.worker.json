@@ -5,5 +5,5 @@
     "lib": ["ES2023"],
     "types": ["@cloudflare/vitest-plugin/types"]
   },
-  "include": ["worker", "test"]
+  "include": ["worker", "test", "shared"]
 }
