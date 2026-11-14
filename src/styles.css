@@ -221,6 +221,11 @@ button.link:hover { background: none; text-decoration: underline; }
 .editor textarea.drop-target { outline: 2px dashed var(--color-accent); outline-offset: -2px; background: var(--color-paper-3); }
 .tabs button { background: var(--color-paper-2); color: var(--color-muted); border-color: var(--color-rule); font-weight: 400; }
 .tabs button:hover { background: var(--color-paper-2); color: var(--color-ink); border-color: var(--color-field); }
+/* 書式ボタン：狭い画面では折り返さず横にスクロールする */
+.markup-toolbar { display: flex; flex-wrap: nowrap; gap: var(--space-sm); overflow-x: auto; padding-bottom: var(--space-2xs); }
+.markup-group { display: flex; flex: none; gap: var(--space-2xs); }
+.markup-group + .markup-group { padding-left: var(--space-sm); border-left: 1px solid var(--color-rule); }
+.markup-toolbar button { white-space: nowrap; }
 .tabs button.active { color: var(--color-ink); border-color: var(--color-ink); font-weight: 700; }
 .preview { min-height: 20rem; }
 .conflict { border: 2px solid var(--color-error); border-radius: var(--radius-card); padding: var(--space-sm) var(--space-md); background: var(--color-paper-2); }
