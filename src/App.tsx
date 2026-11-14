@@ -1,17 +1,27 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, NavLink, Route, Routes, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import { Avatar } from "./Avatar";
-import { AccountPage } from "./pages/AccountPage";
-import { AdminPage } from "./pages/AdminPage";
 import { ArticleEditPage } from "./pages/ArticleEditPage";
 import { ArticleListPage } from "./pages/ArticleListPage";
 import { ArticleViewPage } from "./pages/ArticleViewPage";
-import { HelpPage } from "./pages/HelpPage";
-import { HistoryPage } from "./pages/HistoryPage";
 import { EmailConfirmPage, InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
 import { SharedPage } from "./pages/SharedPage";
 import { WikiLinkPage } from "./pages/WikiLinkPage";
+
+// たまにしか開かない画面は、開いたときに読み込む（最初に読み込む JS を減らす）
+const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ default: m.AccountPage })));
+const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
+const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })));
+const HistoryPage = lazy(() => import("./pages/HistoryPage").then((m) => ({ default: m.HistoryPage })));
+
+function Content({ children }: { children: ReactNode }) {
+  return (
+    <main className="content">
+      <Suspense fallback={<p className="muted">読み込み中…</p>}>{children}</Suspense>
+    </main>
+  );
+}
 
 interface AuthState {
   user: User | null;
@@ -96,7 +106,7 @@ function HelpRoute() {
           <NavLink to="/login">ログイン</NavLink>
         </nav>
       </header>
-      <main className="content"><HelpPage /></main>
+      <Content><HelpPage /></Content>
     </div>
   );
 }
@@ -131,7 +141,7 @@ function Layout({ children }: { children: ReactNode }) {
         </nav>
         <Link to="/articles/new" className="button small new-article">新しい記事</Link>
       </header>
-      <main className="content">{children}</main>
+      <Content>{children}</Content>
     </div>
   );
 }
