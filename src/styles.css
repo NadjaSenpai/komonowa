@@ -392,5 +392,4 @@ tr.selected { background: var(--color-selected); }
 .shared-label { color: var(--color-muted); margin-bottom: var(--space-md); }
 .share-passcode { margin: var(--space-sm) 0 var(--space-md); padding-top: var(--space-sm); border-top: 1px solid var(--color-rule); }
 .share-passcode .passcode { font-family: var(--font-outlier); font-size: var(--text-lg); letter-spacing: 0.15em; }
-.shared-lock { max-width: 360px; }
-.shared-lock input { font-family: var(--font-outlier); letter-spacing: 0.2em; }
+.passcode-input { font-family: var(--font-outlier); letter-spacing: 0.2em; }

@@ -58,31 +58,42 @@ export function SharedPage() {
 
   const html = useMemo(() => (article ? sharedHtml(article.body, token) : ""), [article, token]);
 
+  // パスワードを聞くときは、ログイン画面と同じく画面の真ん中のカードにする
+  if (locked) {
+    return (
+      <div className="auth">
+        <div className="card">
+          <p className="brand">komonowa</p>
+          <h1>パスワードを入れてください</h1>
+          <form onSubmit={submit} className="stack">
+            <p>この記事はパスワードで守られています。共有した人から聞いた6桁の数字を入れてください。</p>
+            <label>
+              パスワード
+              <input
+                className="passcode-input"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value.replace(/D/g, "").slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="off"
+                pattern="d{6}"
+                maxLength={6}
+                required
+                autoFocus
+              />
+            </label>
+            {passError && <p className="error" role="alert">{passError}</p>}
+            <button type="submit" disabled={busy || passcode.length !== 6}>開く</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="shared">
       <p className="shared-label small">komonowa で共有された記事</p>
       {error && <p className="error">{error}</p>}
-      {!error && !article && !locked && <p className="muted">読み込み中…</p>}
-      {locked && (
-        <form onSubmit={submit} className="stack shared-lock">
-          <p>この記事はパスワードで守られています。共有した人から聞いた6桁の数字を入れてください。</p>
-          <label>
-            パスワード
-            <input
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="off"
-              pattern="\d{6}"
-              maxLength={6}
-              required
-              autoFocus
-            />
-          </label>
-          {passError && <p className="error" role="alert">{passError}</p>}
-          <button type="submit" disabled={busy || passcode.length !== 6}>開く</button>
-        </form>
-      )}
+      {!error && !article && <p className="muted">読み込み中…</p>}
       {article && (
         <article className="article-page">
           <h1>{article.title}</h1>
