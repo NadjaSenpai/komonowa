@@ -108,6 +108,8 @@ npm run build && npx wrangler deploy
 ## 運用
 
 D1 と R2 のバックアップ・復元は [docs/operations.md](docs/operations.md) を参照してください。
+毎月1・8・15・22日の09:23（JST）にGitHub ActionsからB2へ暗号化バックアップを保存し、直近24世代を保持します。
+稼働にはB2用Secretsと復号用の `BACKUP_PASSPHRASE` が必要です。初期設定と復元手順は運用手順を参照してください。
 
 ## ディレクトリ
 

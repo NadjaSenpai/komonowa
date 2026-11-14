@@ -11,7 +11,7 @@ Wiki のデータは2か所にあります。両方をそろえて保管・復�
 
 ## 手動バックアップ
 
-前提: `npx wrangler login` 済みで、`wrangler.jsonc` の `database_id` が本番のものになっていること。
+前提: `npx wrangler login` 済みで、`wrangler.jsonc` の `database_id` が本番のものになっていること。SQLからファイル一覧を作るため `sqlite3` CLI も必要です（macOSでは標準搭載）。
 
 ```sh
 npm run backup:remote
@@ -21,7 +21,7 @@ npm run backup:remote
 スクリプト（`scripts/backup.mjs`）は次を順に行います。
 
 1. `wrangler d1 export wiki-db --remote --output d1.sql` でスキーマとデータを SQL として書き出す
-2. D1 の `attachments` テーブルと `users.avatar_id` から R2 キーの一覧を取得する
+2. 書き出した SQL をローカルのインメモリ SQLite に読み込み、`attachments` テーブルと `users.avatar_id` から R2 キーの一覧を取得する（本番DBは再照会しない）
 3. 各オブジェクトを `wrangler r2 object get` で取得し、`manifest.json` に一覧を記録する
 
 注意:
@@ -30,7 +30,63 @@ npm run backup:remote
 - D1 のエクスポート中はデータベースへの他のリクエストが待たされます。利用の少ない時間帯に実行してください
 - 添付は1件ずつ取得するので、件数が多いと時間がかかります
 - バックアップ中にアップロードされた添付は含まれないことがあります。整合性が必要なら、作業時間を告知してから実行してください
+- SQLの書き出し後に削除された添付・アイコンを取得できない場合は失敗します。削除操作を避けて再実行してください
 - ローカル開発データで試すときは `npm run backup:local` を使います
+
+## B2 への定期バックアップ
+
+`.github/workflows/backup.yml` が毎月 **1・8・15・22日の09:23（JST）** に実行します。GitHub Actions のスケジュールは遅延・未実行になる場合があります。`main` にワークフローを反映してから有効になり、Actions → Backup → Run workflow から随時実行もできます。
+
+保存先は非公開バケット `komonowa-backups`、Endpoint は `https://s3.us-west-004.backblazeb2.com` です。
+`komonowa/backup-<UTC日時>.tar.gz.gpg` として保存します。D1 SQL・manifest・R2ファイルをまとめてGPGのAES256で暗号化し、暗号文だけを送信します。
+再ダウンロードした暗号文のSHA-256を照合した後、**直近24世代**を残して古いものをバージョンID付きで完全削除します。
+手動実行分も1世代として数えます。保存または照合に失敗した場合は旧世代を削除しません。B2の「Keep all versions」の設定はそのままで構いません。
+デプロイと同じconcurrency groupを使い、マイグレーションとの同時実行を避けます。
+
+### 初期設定
+
+GitHubリポジトリの Settings → Secrets and variables → Actions に次を登録します。
+
+| Secret | 値 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | D1のエクスポートとR2の読み取りができるAPIトークン。既存のデプロイ用トークンに必要な権限があるか確認する |
+| `CLOUDFLARE_ACCOUNT_ID` | 対象アカウントID（デプロイと共通） |
+| `B2_ACCESS_KEY_ID` | 対象バケット専用のkeyID |
+| `B2_SECRET_ACCESS_KEY` | 対応するapplicationKey |
+| `BACKUP_PASSPHRASE` | 暗号化・復号用の十分長いランダムな値。32文字以上・改行なし |
+
+B2の App Keys → Add a New Application Key から、対象バケット専用の Read and Write キーを作成します。Master Application KeyはS3互換APIで使えません。
+B2のキーには対象バケットのファイルを一覧・読み取り・書き込み・削除できる権限が必要です。
+`BACKUP_PASSPHRASE` は、利用者の端末で `openssl rand -base64 32` を実行して作成できます。
+**パスワード管理ツールにも保管してください。GitHub Secretsから元の値を取り出すことはできません。** キーを変更しても既存の暗号文は変わらないので、旧世代の復元には旧パスフレーズが必要です。チャットやリポジトリには貼り付けません。
+
+初回は Actions から手動実行し、成功・B2上のファイル・以下の復元を確認してください。
+手元で実行する場合は `npm run backup:b2` を使えますが、GPG・tar・AWS CLI・sqlite3と上記環境変数（B2キーは `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`）が必要です。
+
+### B2から取得して復号する
+
+B2の管理画面から、復元したい `.tar.gz.gpg` をダウンロードします。macOSでは `brew install gnupg` でGPGを導入できます。
+次のコマンドは復号用パスフレーズを対話入力します。引数やシェル履歴には残しません。
+
+```sh
+mkdir -p backups/restore
+gpg --output backups/restore.tar.gz --decrypt "/path/to/backup-日時.tar.gz.gpg"
+# 上のコマンドが成功した場合だけ、以下を実行する（破損時の部分出力を使わない）
+tar -xzf backups/restore.tar.gz -C backups/restore
+# backups/restore/d1.sql, manifest.json, r2/ がそろっていることを確認
+```
+
+続いて下の「D1の復元 B」「R2の復元」「復元後の確認」を実施します。D1は新しい空のDBへ復元してください。
+現在のR2復元スクリプトは `wiki-files` に書き戻すため、実行前に本番への書き込みを止め、現在のバックアップも取ってください。
+ローカルへの復元試験では `--local` を指定し、本番のDB設定を切り替えません。
+
+### 通知・保存容量の確認
+
+- GitHubの通知設定でActionsの失敗通知を有効にし、Backupの失敗を確認する。専用メール送信処理は追加していない
+- 月1回、Actionsで直近の予定日に成功したか確認する。未実行を検知する外部監視はない
+- B2の容量を確認する。無料保管枠10GBに対し、1世代の暗号化後サイズ×24が目安。1世代500MBなら約12GBになるため無料枠を超える。余裕を持つなら1世代350MB程度以下が目安
+- B2のダウンロード無料枠、GitHub Actionsの無料実行枠は保管容量とは別。各サービスの利用量を確認する
+- 初回と3か月に1回はローカル復元を試し、記事・履歴・添付・アイコンを確認する
 
 ## D1 の復元
 

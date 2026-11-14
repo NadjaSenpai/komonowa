@@ -1,0 +1,68 @@
+name: Backup
+
+on:
+  schedule:
+    # UTC 00:23 = JST 09:23
+    - cron: "23 0 1,8,15,22 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # デプロイと並列に走らせない。手動実行も同じロックを使う。
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg sqlite3
+          aws --version
+          npm ci
+      - name: Check B2 credentials without printing secrets
+        env:
+          B2_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          B2_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+        run: |
+          node --input-type=module <<'JS'
+          const id = process.env.B2_KEY_ID ?? "";
+          const key = process.env.B2_KEY ?? "";
+          for (const [name, value] of [["keyID", id], ["applicationKey", key]]) {
+            if (!value || /\s/.test(value) || !/^[\x21-\x7e]+$/.test(value)) {
+              throw new Error(`${name}: missing or contains whitespace/non-ASCII characters`);
+            }
+          }
+          const response = await fetch("https://api.backblazeb2.com/b2api/v4/b2_authorize_account", {
+            headers: { Authorization: `Basic ${Buffer.from(`${id}:${key}`).toString("base64")}` },
+            signal: AbortSignal.timeout(20000),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            console.error(`B2 Native authentication failed: HTTP ${response.status}, code=${String(data.code).replace(/[^a-z_]/gi, "")}`);
+            process.exit(1);
+          }
+          if (id === data.accountId) {
+            throw new Error("Master Application Key cannot be used with S3. Create a bucket-specific Application Key.");
+          }
+          console.log("B2 Native authentication succeeded");
+          JS
+      - name: Back up and verify D1 and R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: "true"
+          AWS_PAGER: ""
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: npm run backup:b2
