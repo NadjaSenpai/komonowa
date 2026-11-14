@@ -33,6 +33,7 @@ export default defineConfig({
         test: {
           name: "ui",
           include: ["src/**/*.test.ts", "shared/**/*.test.ts"],
+          setupFiles: ["./src/__tests__/setup-storage.ts"],
           environment: "jsdom",
         },
       },
