@@ -177,6 +177,19 @@ describe("パスワード再設定と無効化", () => {
     expect((await new Client().post("/api/auth/login", { email: member.email, password: member.password })).status).toBe(200);
   });
 
+  it("無効化・降格した管理者が送った未使用の招待は使えなくなる", async () => {
+    const admin = await adminClient();
+    for (const change of [{ status: "disabled" }, { role: "member" }]) {
+      const other = await memberClient(admin, "admin");
+      const addr = `late-${crypto.randomUUID().slice(0, 8)}@example.com`;
+      expect((await other.client.post("/api/admin/invites", { email: addr, role: "admin" })).status).toBe(201);
+      const invite = tokenFrom(lastMail());
+      expect((await admin.patch(`/api/admin/users/${other.user.id}`, change)).status).toBe(200);
+      const res = await new Client().post("/api/auth/invite/accept", { token: invite, name: "あとから", password: "late-password-123" });
+      expect(res.status).toBe(410);
+    }
+  });
+
   it("再設定メールを送れなければ、前のリンクがそのまま使える", async () => {
     const admin = await adminClient();
     const member = await memberClient(admin);
