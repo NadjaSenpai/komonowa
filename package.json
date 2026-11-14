@@ -12,7 +12,9 @@
     "db:migrate:local": "wrangler d1 migrations apply wiki-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply wiki-db --remote",
     "cf-typegen": "wrangler types worker/worker-configuration.d.ts",
-    "check": "tsc -b && vitest run && vite build",
+    "lint": "biome ci .",
+    "format": "biome format --write .",
+    "check": "biome ci . && tsc -b && vitest run && vite build",
     "backup:remote": "node scripts/backup.mjs --remote",
     "backup:local": "node scripts/backup.mjs --local",
     "restore:r2": "node scripts/restore-r2.mjs"
@@ -28,6 +30,7 @@
     "react-router": "^8.5.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
     "@cloudflare/vite-plugin": "^1.68.0",
     "@cloudflare/vitest-plugin": "^1.7.0",
     "@types/node": "^26.6.6",
