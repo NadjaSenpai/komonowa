@@ -80,7 +80,7 @@ button.link:hover { background: none; text-decoration: underline; }
   min-height: 64px; padding: var(--space-sm) max(var(--space-lg), calc((100% - var(--content)) / 2 + var(--space-lg)));
   background: var(--color-paper-2); border-bottom: 1px solid var(--color-rule);
 }
-.brand { font-weight: 800; font-size: var(--text-xl); letter-spacing: -0.01em; color: var(--color-accent); text-decoration: none; }
+.brand { font-weight: 700; font-size: var(--text-xl); letter-spacing: -0.01em; color: var(--color-accent); text-decoration: none; }
 .topbar nav { margin-left: auto; display: flex; gap: var(--space-lg); align-items: center; flex-wrap: wrap; font-size: var(--text-sm); }
 .topbar nav a { color: var(--color-muted); text-decoration: none; }
 .topbar nav a:hover { color: var(--color-ink); }

@@ -4,7 +4,6 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 import { App } from "./App";
 import "@fontsource/line-seed-jp/400.css";
 import "@fontsource/line-seed-jp/700.css";
-import "@fontsource/line-seed-jp/800.css";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 
