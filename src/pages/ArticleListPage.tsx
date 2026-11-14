@@ -95,7 +95,7 @@ export function ArticleListPage() {
           </button>
         </form>
         {(q || selected.length > 0) && (
-          <div className="active-filters" aria-label="絞り込み条件">
+          <div className="active-filters" role="group" aria-label="絞り込み条件">
             <span className="small muted">絞り込み中</span>
             {q && <span className="small">「{q}」</span>}
             {selected.map((t) => (
@@ -114,7 +114,7 @@ export function ArticleListPage() {
         <h2>タグで絞り込み</h2>
         <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
         <div className="tag-scroll">
-          <div className="tags tag-cloud" tabIndex={0} aria-label="タグで絞り込み">
+          <div className="tags tag-cloud" role="group" aria-label="タグで絞り込み">
             {tags.map((t) => (
               <button
                 key={t.id}

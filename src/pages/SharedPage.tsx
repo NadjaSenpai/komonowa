@@ -78,6 +78,7 @@ export function SharedPage() {
                 pattern="\d{6}"
                 maxLength={6}
                 required
+                // biome-ignore lint/a11y/noAutofocus: パスワードを入れるだけの画面なので、すぐ打てるようにする
                 autoFocus
               />
             </label>

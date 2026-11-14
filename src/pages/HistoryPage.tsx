@@ -126,6 +126,8 @@ export function HistoryPage() {
               第{selected.version}版：{selected.title}
             </h2>
             <p className="meta">{selected.tags.map((t) => `#${t}`).join(" ")}</p>
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: 描画した本文の中のリンクのクリックを、包む要素でまとめて受ける */}
+            {/* biome-ignore lint/a11y/useKeyWithClickEvents: リンクは Enter でもクリックとして届くので、キー操作は別に要らない */}
             <div className="markdown" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
           </section>
         )}

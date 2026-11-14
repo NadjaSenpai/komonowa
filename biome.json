@@ -24,14 +24,7 @@
       "style": { "noNonNullAssertion": "off", "useTemplate": "off" },
       "suspicious": { "noControlCharactersInRegex": "off", "useIterableCallbackReturn": "off" },
       "security": { "noDangerouslySetInnerHtml": "off" },
-      "a11y": {
-        "noAutofocus": "warn",
-        "noNoninteractiveTabindex": "warn",
-        "noStaticElementInteractions": "warn",
-        "useAriaPropsSupportedByRole": "warn",
-        "useKeyWithClickEvents": "warn",
-        "useSemanticElements": "warn"
-      }
+      "a11y": { "useSemanticElements": "off" }
     }
   },
   "overrides": [{ "includes": ["test/**"], "linter": { "rules": { "suspicious": { "noExplicitAny": "off" } } } }],

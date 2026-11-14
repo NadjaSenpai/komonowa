@@ -127,6 +127,7 @@ export function AvatarCropper({ file, onCancel, onDone }: Props) {
             ref={frame}
             className="cropper-frame"
             style={{ inlineSize: VIEW, blockSize: VIEW }}
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: 矢印キーと + - で動かす部品なので、フォーカスできる必要がある
             tabIndex={0}
             role="application"
             aria-label="表示範囲。ドラッグか矢印キーで移動、+ と - で拡大縮小"

@@ -203,6 +203,7 @@ export function ArticleViewPage() {
               {tocLinks}
             </details>
           )}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: 描画した本文の中のリンクとチェックの操作を、包む要素でまとめて受ける */}
           <div
             ref={bodyRef}
             className="markdown article-body"
