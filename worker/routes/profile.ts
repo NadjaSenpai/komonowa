@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { randomToken, sha256, verifyPassword } from "../crypto";
+import { randomToken, sha256 } from "../crypto";
+import { verifyCurrentPassword } from "../reauth";
 import { email, fail, readJson, str } from "../http";
 import { isBlocked } from "../accounts";
 import { sendOrFail } from "../mail";
@@ -51,7 +52,8 @@ profile.post("/email", async (c) => {
   const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
   const userId = c.var.user.id;
   const row = await c.env.DB.prepare("SELECT email, password_hash FROM users WHERE id = ?").bind(userId).first<{ email: string; password_hash: string }>();
-  if (!row || !(await verifyPassword(current, row.password_hash))) fail(403, "現在のパスワードが正しくありません");
+  await verifyCurrentPassword(c.env.DB, userId, current, row?.password_hash);
+  if (!row) fail(403, "現在のパスワードが正しくありません");
   if (row.email.toLowerCase() === next) fail(400, "今のメールアドレスと同じです");
   if (await isBlocked(c.env.DB, next)) fail(409, EMAIL_BLOCKED);
   if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(next).first()) fail(409, EMAIL_TAKEN);

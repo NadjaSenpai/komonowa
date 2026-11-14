@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { getDummyHash, hashPassword, safeStringEqual, sha256, verifyPassword } from "../crypto";
+import { verifyCurrentPassword } from "../reauth";
 import type { AppEnv } from "../env";
 import { email, fail, password, readJson, str } from "../http";
 import { isBlocked, removeAccount } from "../accounts";
@@ -214,8 +215,8 @@ auth.post("/withdraw", requireAuth, async (c) => {
   const row = await c.env.DB.prepare("SELECT password_hash, is_owner FROM users WHERE id = ?")
     .bind(c.var.user.id)
     .first<{ password_hash: string; is_owner: number }>();
-  if (!row || !(await verifyPassword(current, row.password_hash))) fail(403, "現在のパスワードが正しくありません");
-  if (row.is_owner) fail(409, "所有者は退会できません。先にほかの管理者に所有者を譲ってください");
+  await verifyCurrentPassword(c.env.DB, c.var.user.id, current, row?.password_hash);
+  if (row?.is_owner) fail(409, "所有者は退会できません。先にほかの管理者に所有者を譲ってください");
   await removeAccount(c.env, c.var.user.id, { block: false });
   clearSessionCookie(c);
   return c.json({ ok: true });
@@ -227,7 +228,7 @@ auth.post("/password", requireAuth, async (c) => {
   const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
   const next = password(body, "newPassword");
   const row = await c.env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(c.var.user.id).first<{ password_hash: string }>();
-  if (!row || !(await verifyPassword(current, row.password_hash))) fail(403, "現在のパスワードが正しくありません");
+  await verifyCurrentPassword(c.env.DB, c.var.user.id, current, row?.password_hash);
   await c.env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
     .bind(await hashPassword(next), Date.now(), c.var.user.id)
     .run();
