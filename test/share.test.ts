@@ -89,3 +89,74 @@ describe("管理者による共有の一覧と停止", () => {
     expect((await admin.del(`/api/admin/shares/${article.id}`)).status).toBe(404);
   });
 });
+
+describe("共有ページ（ログイン不要）", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 3, 3]);
+  const GONE = "共有が見つかりません。共有が止められたか、URL が違います";
+
+  function upload(c: Client, path: string, name = "図.png") {
+    const form = new FormData();
+    form.append("file", new File([PNG], name));
+    return c.request(path, { method: "POST", body: form });
+  }
+  async function start(c: Client, id: string) {
+    const { share } = await json(await c.post(`/api/articles/${id}/share`));
+    return share.url.split("/s/")[1] as string;
+  }
+  const anon = () => new Client();
+
+  it("ログインなしで、タイトル・本文・更新日だけを読める", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const article = await createArticle(client, { title: "手順書", body: "# 手順\n1. する", tags: ["ひみつ"] });
+    const token = await start(client, article.id);
+    const res = await anon().get(`/api/share/${token}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow, noarchive, noai, noimageai");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    const body = await json(res);
+    expect(Object.keys(body.article).sort()).toEqual(["body", "title", "updated_at"]);
+    expect(body.article.title).toBe("手順書");
+  });
+
+  it("止めた・ごみ箱・でたらめなトークンは、どれも同じ 404", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin);
+    const token = await start(admin, article.id);
+    await admin.del(`/api/articles/${article.id}/share`);
+    for (const t of [token, "x".repeat(43), "a".repeat(500)]) {
+      const res = await anon().get(`/api/share/${t}`);
+      expect(res.status).toBe(404);
+      expect((await json(res)).error).toBe(GONE);
+      expect(res.headers.get("x-robots-tag")).toContain("noindex");
+    }
+    const other = await createArticle(admin);
+    const otherToken = await start(admin, other.id);
+    await admin.del(`/api/articles/${other.id}`);
+    expect((await anon().get(`/api/share/${otherToken}`)).status).toBe(404);
+  });
+
+  it("その記事の添付だけを読める", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const article = await createArticle(client);
+    const mine = (await json(await upload(client, `/api/articles/${article.id}/attachments`))).attachment;
+    const otherArticle = await createArticle(client);
+    const others = (await json(await upload(client, `/api/articles/${otherArticle.id}/attachments`))).attachment;
+    const draft = (await json(await upload(client, "/api/attachments"))).attachment;
+    const token = await start(client, article.id);
+
+    const ok = await anon().get(`/api/share/${token}/attachments/${mine.id}`);
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("content-type")).toBe("image/png");
+    expect(ok.headers.get("cache-control")).toBe("no-store");
+    expect(ok.headers.get("x-robots-tag")).toContain("noai");
+    expect(new Uint8Array(await ok.arrayBuffer())).toEqual(PNG);
+
+    for (const id of [others.id, draft.id, "00000000-0000-0000-0000-000000000000"]) {
+      expect((await anon().get(`/api/share/${token}/attachments/${id}`)).status).toBe(404);
+    }
+    await client.del(`/api/articles/${article.id}/share`);
+    expect((await anon().get(`/api/share/${token}/attachments/${mine.id}`)).status).toBe(404);
+  });
+});

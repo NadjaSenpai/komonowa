@@ -253,6 +253,11 @@ attachments.get("/attachments/:id", requireAuth, async (c) => {
   const row = await findVisible(c, c.req.param("id"));
   const object = await c.env.FILES.get(row.r2_key);
   if (!object) fail(404, "ファイルが見つかりません");
+  return attachmentResponse(object, row, "private, max-age=300");
+});
+
+/** 添付を返す。画像と PDF はその場で表示、それ以外はダウンロード（共有ページ share.ts からも使う） */
+export function attachmentResponse(object: R2ObjectBody, row: { filename: string; content_type: string }, cacheControl: string) {
   const inline = row.content_type.startsWith("image/") || row.content_type === "application/pdf";
   const ascii = row.filename.replace(/[^\x20-\x7e]/g, "_").replace(/[\\;]/g, "_");
   const headers = new Headers({
@@ -260,12 +265,12 @@ attachments.get("/attachments/:id", requireAuth, async (c) => {
     "content-length": String(object.size),
     "content-disposition": `${inline ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(row.filename)}`,
     "x-content-type-options": "nosniff",
-    "cache-control": "private, max-age=300",
+    "cache-control": cacheControl,
     "cross-origin-resource-policy": "same-origin",
   });
   if (row.content_type.startsWith("image/")) headers.set("content-security-policy", "default-src 'none'; sandbox");
   return new Response(object.body, { headers });
-});
+}
 
 attachments.delete("/attachments/:id", requireAuth, async (c) => {
   const id = c.req.param("id");

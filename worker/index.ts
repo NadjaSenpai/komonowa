@@ -8,6 +8,7 @@ import { admin } from "./routes/admin";
 import { articles } from "./routes/articles";
 import { MAX_FILE_BYTES, MAX_THUMB_BYTES, attachments } from "./routes/attachments";
 import { auth } from "./routes/auth";
+import { share } from "./routes/share";
 import { avatars, profile } from "./routes/profile";
 
 const app = new Hono<AppEnv>().basePath("/api");
@@ -27,6 +28,7 @@ app.route("/auth", profile);
 app.route("/avatars", avatars);
 app.route("/admin", admin);
 app.route("/articles", articles);
+app.route("/share", share);
 app.route("/", attachments);
 
 app.notFound((c) => c.json({ error: "見つかりません" }, 404));
