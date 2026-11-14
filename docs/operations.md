@@ -89,4 +89,10 @@ npm run dev
 - **送信元ドメイン**: `wrangler.jsonc` の `vars.MAIL_FROM`（`komonowa@nadja.dev`）。Email Sending の登録で `cf-bounce` サブドメインに MX・SPF・DKIM が入る。消すと送れなくなる
 - **退職・異動**: 管理画面で「無効化」。即座に全セッションが切断され、記事と履歴は残る
 - **管理者を追加**: 「管理者」権限で招待するか、既存メンバーの権限を変更する。有効な管理者が0人になる操作はできない
+- **所有者**: 最初の管理者。ほかの管理者からは降格・無効化できない。画面では譲れないので、譲るときは次のコマンドで（新しい所有者は有効な管理者であること。アドレスが一致しなければ何も変わらない）
+
+  ```sh
+  npx wrangler d1 execute wiki-db --remote --command "UPDATE users SET is_owner = 0 WHERE is_owner = 1 AND EXISTS (SELECT 1 FROM users WHERE email = '新しい所有者のアドレス' AND role = 'admin' AND status = 'active'); UPDATE users SET is_owner = 1 WHERE email = '新しい所有者のアドレス' AND role = 'admin' AND status = 'active';"
+  npx wrangler d1 execute wiki-db --remote --command "SELECT name, email FROM users WHERE is_owner = 1"  # 確認
+  ```
 - **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る

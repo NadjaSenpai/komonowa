@@ -10,6 +10,7 @@ interface AdminUser {
   name: string;
   role: "admin" | "member";
   status: "active" | "disabled";
+  is_owner: 0 | 1;
   avatar_id: string | null;
   created_at: number;
 }
@@ -199,16 +200,21 @@ export function AdminPage() {
                 </td>
                 <td>{u.email}</td>
                 <td>
-                  <select
-                    value={u.role}
-                    disabled={u.id === user?.id}
-                    title={u.id === user?.id ? "自分の権限は変更できません" : undefined}
-                    aria-label={`${u.name} の権限`}
-                    onChange={(e) => run(() => api.patch(`/admin/users/${u.id}`, { role: e.target.value }))}
-                  >
-                    <option value="member">メンバー</option>
-                    <option value="admin">管理者</option>
-                  </select>
+                  {/* 所有者はほかの管理者から権限変更・無効化されない（docs/superpowers/specs/2026-11-14-owner-design.md） */}
+                  {u.is_owner ? (
+                    <span title="ほかの管理者は、所有者の権限変更や無効化はできません">所有者</span>
+                  ) : (
+                    <select
+                      value={u.role}
+                      disabled={u.id === user?.id}
+                      title={u.id === user?.id ? "自分の権限は変更できません" : undefined}
+                      aria-label={`${u.name} の権限`}
+                      onChange={(e) => run(() => api.patch(`/admin/users/${u.id}`, { role: e.target.value }))}
+                    >
+                      <option value="member">メンバー</option>
+                      <option value="admin">管理者</option>
+                    </select>
+                  )}
                 </td>
                 <td>{u.status === "active" ? "有効" : "無効"}</td>
                 <td>{formatDate(u.created_at)}</td>
@@ -217,13 +223,13 @@ export function AdminPage() {
                     {u.id !== user?.id && u.status === "active" && (
                       <>
                         <button type="button" className="secondary small" disabled={sending} onClick={() => resetLink(u)}>再設定メールを送る</button>
-                        <button
+                        {!u.is_owner && <button
                           type="button"
                           className="danger small"
                           onClick={() => confirm(`${u.name} さんを無効化しますか？ログイン中のセッションも切断されます。記事は残ります。`) && run(() => api.patch(`/admin/users/${u.id}`, { status: "disabled" }))}
                         >
                           無効化
-                        </button>
+                        </button>}
                       </>
                     )}
                     {u.status === "disabled" && (
