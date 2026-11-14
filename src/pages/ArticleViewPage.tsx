@@ -32,6 +32,7 @@ export function ArticleViewPage() {
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const [share, setShare] = useState<Share | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 記事が変わったら閉じる（id は合図として使う）
   useEffect(() => setShareOpen(false), [id]);
   const [error, setError] = useState("");
   const [uploadError, setUploadError] = useState("");
@@ -82,6 +83,7 @@ export function ArticleViewPage() {
   // チェックリスト：描画し直すたびに、このブラウザに覚えている付け外しを当て直す
   const bodyRef = useRef<HTMLDivElement>(null);
   const [anyChecked, setAnyChecked] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 本文を描画し直すたびに当て直す（html は合図として使う）
   useEffect(() => {
     if (!bodyRef.current) return;
     prepareTaskBoxes(bodyRef.current, id);
@@ -153,110 +155,146 @@ export function ArticleViewPage() {
   return (
     <article className="article-page">
       <div className="article-layout">
-      <div className="article-main">
-      <div className="article-head">
-        <h1>{article.title}</h1>
-        <div className="actions">
-          <Link className="button" to={`/articles/${id}/edit`}>編集</Link>
-          <Link className="button secondary" to={`/articles/${id}/history`}>履歴</Link>
-          <button type="button" className="secondary" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>共有</button>
-          <button type="button" className="danger" onClick={remove}>削除</button>
-        </div>
-      </div>
-      {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
-      <p className="meta">
-        {share && <span className="shared-badge" title="URL を知っている人はログインなしで読めます">共有中</span>}
-        {article.tags.map((t) => (
-          <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>#{t}</Link>
-        ))}
-        <span className="meta-item">
-          <Byline userId={article.updated_by} name={article.updated_by_name} avatarId={article.updated_by_avatar} />
-          {formatDate(article.updated_at)} 更新
-        </span>
-        {article.created_by !== article.updated_by && (
-          <span className="meta-item">
-            作成
-            <Byline userId={article.created_by} name={article.created_by_name} avatarId={article.created_by_avatar} />
-          </span>
-        )}
-        <span className="meta-item">第{article.version}版</span>
-      </p>
-      {tocLinks && (
-        <details className="toc-inline">
-          <summary>目次</summary>
-          {tocLinks}
-        </details>
-      )}
-      <div
-        ref={bodyRef}
-        className="markdown article-body"
-        onClick={onBodyClickWithTasks}
-        onKeyDown={onBodyKeyDown}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-      {anyChecked && (
-        <p className="task-actions">
-          <button type="button" className="link small" onClick={clearChecks}>チェックをすべて外す</button>
-        </p>
-      )}
-      </div>
-
-      {/* 広い画面では本文の右に並び、狭い画面では本文の下に続く */}
-      <aside className="article-aside">
-      {tocLinks && (
-        <nav className="toc-side" aria-label="目次">
-          <h2>目次</h2>
-          {tocLinks}
-        </nav>
-      )}
-
-      {backlinks.length > 0 && (
-        <section className="backlinks">
-          <h2>このページにリンクしているページ</h2>
-          <ul className="article-list">
-            {backlinks.map((b) => (
-              <li key={b.id}>
-                <Link to={`/articles/${b.id}`} className="title">{b.title}</Link>
-                <p className="meta"><span className="meta-item">{formatDate(b.updated_at)} 更新</span></p>
-              </li>
+        <div className="article-main">
+          <div className="article-head">
+            <h1>{article.title}</h1>
+            <div className="actions">
+              <Link className="button" to={`/articles/${id}/edit`}>
+                編集
+              </Link>
+              <Link className="button secondary" to={`/articles/${id}/history`}>
+                履歴
+              </Link>
+              <button type="button" className="secondary" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
+                共有
+              </button>
+              <button type="button" className="danger" onClick={remove}>
+                削除
+              </button>
+            </div>
+          </div>
+          {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
+          <p className="meta">
+            {share && (
+              <span className="shared-badge" title="URL を知っている人はログインなしで読めます">
+                共有中
+              </span>
+            )}
+            {article.tags.map((t) => (
+              <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>
+                #{t}
+              </Link>
             ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="attachments">
-        <h2>添付ファイル</h2>
-        {attachments.length === 0 && <p className="muted small">添付はありません</p>}
-        <ul>
-          {attachments.map((a) => (
-            <li key={a.id}>
-              <a href={`/api/attachments/${a.id}`} target="_blank" rel="noopener">{a.filename}</a>
-              <span className="muted small"> {formatSize(a.size)} · {a.uploaded_by_name}</span>
-              {article.body.includes(`/api/attachments/${a.id}`) ? (
-                <span className="muted small" title="本文から外すと削除できます"> · 本文で使用中</span>
-              ) : (a.uploaded_by === user?.id || user?.role === "admin") && (
-                <button type="button" className="link small danger-text" onClick={() => removeAttachment(a)}>削除</button>
-              )}
-            </li>
-          ))}
-        </ul>
-        {/* ブラウザ標準のファイル選択欄は狭い欄で「選択さ…いません」と切れるので隠し、欄全体を押して選ぶ形にする */}
-        <label className="upload">
-          <span className="upload-title">{uploading ? "アップロード中…" : "ファイルを添付"}</span>
-          <span className="upload-hint">画像・PDF・Office 文書・テキスト・ZIP（10MBまで）</span>
-          <input
-            ref={fileRef}
-            className="visually-hidden"
-            type="file"
-            multiple
-            accept={ACCEPT}
-            disabled={uploading}
-            onChange={(e) => upload(e.target.files)}
+            <span className="meta-item">
+              <Byline userId={article.updated_by} name={article.updated_by_name} avatarId={article.updated_by_avatar} />
+              {formatDate(article.updated_at)} 更新
+            </span>
+            {article.created_by !== article.updated_by && (
+              <span className="meta-item">
+                作成
+                <Byline userId={article.created_by} name={article.created_by_name} avatarId={article.created_by_avatar} />
+              </span>
+            )}
+            <span className="meta-item">第{article.version}版</span>
+          </p>
+          {tocLinks && (
+            <details className="toc-inline">
+              <summary>目次</summary>
+              {tocLinks}
+            </details>
+          )}
+          <div
+            ref={bodyRef}
+            className="markdown article-body"
+            onClick={onBodyClickWithTasks}
+            onKeyDown={onBodyKeyDown}
+            dangerouslySetInnerHTML={{ __html: html }}
           />
-        </label>
-        {uploadError && <p className="error" role="alert">{uploadError}</p>}
-      </section>
-      </aside>
+          {anyChecked && (
+            <p className="task-actions">
+              <button type="button" className="link small" onClick={clearChecks}>
+                チェックをすべて外す
+              </button>
+            </p>
+          )}
+        </div>
+
+        {/* 広い画面では本文の右に並び、狭い画面では本文の下に続く */}
+        <aside className="article-aside">
+          {tocLinks && (
+            <nav className="toc-side" aria-label="目次">
+              <h2>目次</h2>
+              {tocLinks}
+            </nav>
+          )}
+
+          {backlinks.length > 0 && (
+            <section className="backlinks">
+              <h2>このページにリンクしているページ</h2>
+              <ul className="article-list">
+                {backlinks.map((b) => (
+                  <li key={b.id}>
+                    <Link to={`/articles/${b.id}`} className="title">
+                      {b.title}
+                    </Link>
+                    <p className="meta">
+                      <span className="meta-item">{formatDate(b.updated_at)} 更新</span>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="attachments">
+            <h2>添付ファイル</h2>
+            {attachments.length === 0 && <p className="muted small">添付はありません</p>}
+            <ul>
+              {attachments.map((a) => (
+                <li key={a.id}>
+                  <a href={`/api/attachments/${a.id}`} target="_blank" rel="noopener">
+                    {a.filename}
+                  </a>
+                  <span className="muted small">
+                    {" "}
+                    {formatSize(a.size)} · {a.uploaded_by_name}
+                  </span>
+                  {article.body.includes(`/api/attachments/${a.id}`) ? (
+                    <span className="muted small" title="本文から外すと削除できます">
+                      {" "}
+                      · 本文で使用中
+                    </span>
+                  ) : (
+                    (a.uploaded_by === user?.id || user?.role === "admin") && (
+                      <button type="button" className="link small danger-text" onClick={() => removeAttachment(a)}>
+                        削除
+                      </button>
+                    )
+                  )}
+                </li>
+              ))}
+            </ul>
+            {/* ブラウザ標準のファイル選択欄は狭い欄で「選択さ…いません」と切れるので隠し、欄全体を押して選ぶ形にする */}
+            <label className="upload">
+              <span className="upload-title">{uploading ? "アップロード中…" : "ファイルを添付"}</span>
+              <span className="upload-hint">画像・PDF・Office 文書・テキスト・ZIP（10MBまで）</span>
+              <input
+                ref={fileRef}
+                className="visually-hidden"
+                type="file"
+                multiple
+                accept={ACCEPT}
+                disabled={uploading}
+                onChange={(e) => upload(e.target.files)}
+              />
+            </label>
+            {uploadError && (
+              <p className="error" role="alert">
+                {uploadError}
+              </p>
+            )}
+          </section>
+        </aside>
       </div>
     </article>
   );

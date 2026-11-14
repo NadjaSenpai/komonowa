@@ -65,7 +65,9 @@ export function SharePanel({ articleId, share, onChange }: { articleId: string; 
           <p className="small">この URL を知っている人は、ログインなしでこの記事を読めます。</p>
           <div className="share-url">
             <input ref={urlRef} readOnly value={share.url} aria-label="共有 URL" onFocus={(e) => e.currentTarget.select()} />
-            <button type="button" className="secondary" onClick={copy}>{copied ? "コピーしました" : "コピー"}</button>
+            <button type="button" className="secondary" onClick={copy}>
+              {copied ? "コピーしました" : "コピー"}
+            </button>
           </div>
           <p className="muted small">
             {share.created_by_name} さんが {formatDate(share.created_at)} に共有を始めました。
@@ -78,27 +80,41 @@ export function SharePanel({ articleId, share, onChange }: { articleId: string; 
                 <span className="muted">URL とは別に伝えてください。入れた人だけが読めます。</span>
               </p>
               <div className="actions">
-                <button type="button" className="secondary small" disabled={busy} onClick={() => lock(true)}>作り直す</button>
-                <button type="button" className="secondary small" disabled={busy} onClick={unlockAll}>外す</button>
+                <button type="button" className="secondary small" disabled={busy} onClick={() => lock(true)}>
+                  作り直す
+                </button>
+                <button type="button" className="secondary small" disabled={busy} onClick={unlockAll}>
+                  外す
+                </button>
               </div>
             </div>
           ) : (
             <div className="share-passcode">
               <p className="small muted">パスワードを付けると、URL を知っていても、パスワード（6桁の数字）を入れた人しか読めなくなります。</p>
-              <button type="button" className="secondary small" disabled={busy} onClick={() => lock(false)}>パスワードを付ける</button>
+              <button type="button" className="secondary small" disabled={busy} onClick={() => lock(false)}>
+                パスワードを付ける
+              </button>
             </div>
           )}
-          <button type="button" className="danger small" disabled={busy} onClick={stop}>共有を止める</button>
+          <button type="button" className="danger small" disabled={busy} onClick={stop}>
+            共有を止める
+          </button>
         </>
       ) : (
         <>
           <p className="small">
             共有すると、URL を知っている人はログインなしでこの記事を読めます。書いた人の名前やタグは表示されません。記事に貼った画像や添付ファイルも見られます。
           </p>
-          <button type="button" disabled={busy} onClick={start}>共有を始める</button>
+          <button type="button" disabled={busy} onClick={start}>
+            共有を始める
+          </button>
         </>
       )}
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }

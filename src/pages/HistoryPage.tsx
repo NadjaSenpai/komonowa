@@ -77,11 +77,22 @@ export function HistoryPage() {
       <h1 className="history-title">
         変更履歴：<Link to={`/articles/${id}`}>{article.title}</Link>
       </h1>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="history">
         <table>
           <thead>
-            <tr><th>版</th><th>操作</th><th>日時</th><th>編集者</th><th>タイトル</th><th /></tr>
+            <tr>
+              <th>版</th>
+              <th>操作</th>
+              <th>日時</th>
+              <th>編集者</th>
+              <th>タイトル</th>
+              <th />
+            </tr>
           </thead>
           <tbody>
             {revisions.map((r) => (
@@ -89,13 +100,19 @@ export function HistoryPage() {
                 <td>{r.version}</td>
                 <td>{ACTIONS[r.action]}</td>
                 <td>{formatDate(r.created_at)}</td>
-                <td><Byline userId={r.edited_by} name={r.edited_by_name} avatarId={r.edited_by_avatar} /></td>
+                <td>
+                  <Byline userId={r.edited_by} name={r.edited_by_name} avatarId={r.edited_by_avatar} />
+                </td>
                 <td>{r.title}</td>
                 <td>
                   <div className="actions">
-                    <button type="button" className="secondary small" onClick={() => show(r.version)}>表示</button>
+                    <button type="button" className="secondary small" onClick={() => show(r.version)}>
+                      表示
+                    </button>
                     {r.version !== article.version && (
-                      <button type="button" className="small" onClick={() => restore(r.version)}>復元</button>
+                      <button type="button" className="small" onClick={() => restore(r.version)}>
+                        復元
+                      </button>
                     )}
                   </div>
                 </td>
@@ -105,7 +122,9 @@ export function HistoryPage() {
         </table>
         {selected && (
           <section className="revision">
-            <h2>第{selected.version}版：{selected.title}</h2>
+            <h2>
+              第{selected.version}版：{selected.title}
+            </h2>
             <p className="meta">{selected.tags.map((t) => `#${t}`).join(" ")}</p>
             <div className="markdown" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
           </section>

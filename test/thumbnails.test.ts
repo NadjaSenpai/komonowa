@@ -25,8 +25,7 @@ function uploadDraft(c: Client, bytes: Uint8Array, name: string, thumb?: Uint8Ar
 }
 
 const bytesOf = async (res: Response) => new Uint8Array(await res.arrayBuffer());
-const keyOf = async (id: string) =>
-  (await env.DB.prepare("SELECT r2_key FROM attachments WHERE id = ?").bind(id).first<{ r2_key: string }>())!.r2_key;
+const keyOf = async (id: string) => (await env.DB.prepare("SELECT r2_key FROM attachments WHERE id = ?").bind(id).first<{ r2_key: string }>())!.r2_key;
 
 describe("添付画像の小さい版", () => {
   it("小さい版を付けて添付すると /thumb で返し、元の URL は元の画像のまま", async () => {
@@ -133,7 +132,9 @@ describe("添付画像の小さい版", () => {
   it("使われなかった下書きの掃除で小さい版も消える", async () => {
     const admin = await adminClient();
     const old = (await json(await uploadDraft(admin, PNG, "old.png", THUMB))).attachment;
-    await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?").bind(Date.now() - 25 * 60 * 60 * 1000, old.id).run();
+    await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?")
+      .bind(Date.now() - 25 * 60 * 60 * 1000, old.id)
+      .run();
     await uploadDraft(admin, PNG, "new.png");
     let gone = false;
     for (let i = 0; i < 20 && !gone; i++) {

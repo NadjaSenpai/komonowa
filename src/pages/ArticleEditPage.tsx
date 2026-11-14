@@ -201,14 +201,14 @@ export function ArticleEditPage() {
         <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="例: ごはん, おでかけ, 手順" />
       </label>
       <div className="editor-bar">
-      <div className="tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "edit"} className={tab === "edit" ? "active" : ""} onClick={() => setTab("edit")}>
-          本文を編集
-        </button>
-        <button type="button" role="tab" aria-selected={tab === "preview"} className={tab === "preview" ? "active" : ""} onClick={() => setTab("preview")}>
-          プレビュー
-        </button>
-      </div>
+        <div className="tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === "edit"} className={tab === "edit" ? "active" : ""} onClick={() => setTab("edit")}>
+            本文を編集
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "preview"} className={tab === "preview" ? "active" : ""} onClick={() => setTab("preview")}>
+            プレビュー
+          </button>
+        </div>
         <button type="button" className="secondary small" onClick={() => fileInput.current?.click()}>
           画像・ファイルを挿入
         </button>
@@ -227,7 +227,9 @@ export function ArticleEditPage() {
       <div className="markup-row">
         <MarkupToolbar disabled={tab !== "edit"} onAction={markup} />
         {/* 書きかけを失わないよう新しいタブで開く */}
-        <a className="markup-help small" href="/help#markdown" target="_blank" rel="noopener">書き方</a>
+        <a className="markup-help small" href="/help#markdown" target="_blank" rel="noopener">
+          書き方
+        </a>
       </div>
       {tab === "edit" ? (
         <textarea
@@ -260,16 +262,30 @@ export function ArticleEditPage() {
           </p>
           <pre>{conflict.body}</pre>
           <div className="actions">
-            <button type="button" onClick={rebase}>自分の内容で上書きする</button>
-            <button type="button" className="secondary" onClick={discardMine}>自分の変更を捨てて最新版を読み込む</button>
+            <button type="button" onClick={rebase}>
+              自分の内容で上書きする
+            </button>
+            <button type="button" className="secondary" onClick={discardMine}>
+              自分の変更を捨てて最新版を読み込む
+            </button>
           </div>
         </div>
       )}
-      {error && !conflict && <p className="error" role="alert">{error}</p>}
+      {error && !conflict && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="actions editor-savebar">
-        <span className="save-state" role="status">{saving ? "保存中…" : dirty ? "未保存の変更" : "変更はありません"}</span>
-        <button type="submit" disabled={saving || uploading > 0 || Boolean(conflict)}>{saving ? "保存中…" : "保存"}</button>
-        <button type="button" className="secondary" onClick={() => navigate(id ? `/articles/${id}` : "/")}>キャンセル</button>
+        <span className="save-state" role="status">
+          {saving ? "保存中…" : dirty ? "未保存の変更" : "変更はありません"}
+        </span>
+        <button type="submit" disabled={saving || uploading > 0 || Boolean(conflict)}>
+          {saving ? "保存中…" : "保存"}
+        </button>
+        <button type="button" className="secondary" onClick={() => navigate(id ? `/articles/${id}` : "/")}>
+          キャンセル
+        </button>
       </div>
     </form>
   );

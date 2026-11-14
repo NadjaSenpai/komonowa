@@ -64,10 +64,7 @@ export async function sha256(value: string): Promise<string> {
 
 /** 文字列の定数時間比較（両方をハッシュして長さを揃える） */
 export async function safeStringEqual(a: string, b: string): Promise<boolean> {
-  const [ha, hb] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(a)),
-    crypto.subtle.digest("SHA-256", encoder.encode(b)),
-  ]);
+  const [ha, hb] = await Promise.all([crypto.subtle.digest("SHA-256", encoder.encode(a)), crypto.subtle.digest("SHA-256", encoder.encode(b))]);
   return timingSafeEqual(new Uint8Array(ha), new Uint8Array(hb));
 }
 

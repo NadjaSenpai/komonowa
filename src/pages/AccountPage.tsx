@@ -88,10 +88,20 @@ function ProfileSection() {
           表示名（50文字まで）
           <input value={name} maxLength={50} autoComplete="nickname" onChange={(e) => setName(e.target.value)} required />
         </label>
-        <button type="submit" disabled={busy || name.trim() === "" || name.trim() === user.name}>名前を保存</button>
+        <button type="submit" disabled={busy || name.trim() === "" || name.trim() === user.name}>
+          名前を保存
+        </button>
       </form>
-      {message && <p className="notice" role="status">{message}</p>}
-      {error && <p className="error" role="alert">{error}</p>}
+      {message && (
+        <p className="notice" role="status">
+          {message}
+        </p>
+      )}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }
@@ -129,8 +139,14 @@ function PasswordSection() {
           <input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(e) => setNext(e.target.value)} required />
         </label>
         {message && <p className="notice">{message}</p>}
-        {error && <p className="error" role="alert">{error}</p>}
-        <button type="submit" className="secondary">パスワードを変更</button>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="secondary">
+          パスワードを変更
+        </button>
       </form>
     </section>
   );
@@ -152,7 +168,9 @@ function EmailSection() {
     setBusy(true);
     try {
       await api.post("/auth/email", { email, currentPassword });
-      setMessage(`${email} に確認メールを送りました。メールのリンクを開いて「変更を確定する」を押すと変更されます（24時間有効）。届かないときは迷惑メールのフォルダも見てください。`);
+      setMessage(
+        `${email} に確認メールを送りました。メールのリンクを開いて「変更を確定する」を押すと変更されます（24時間有効）。届かないときは迷惑メールのフォルダも見てください。`,
+      );
       setEmail("");
       setCurrent("");
     } catch (err) {
@@ -175,9 +193,19 @@ function EmailSection() {
           現在のパスワード
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
         </label>
-        {message && <p className="notice" role="status">{message}</p>}
-        {error && <p className="error" role="alert">{error}</p>}
-        <button type="submit" className="secondary" disabled={busy}>{busy ? "送信中…" : "確認メールを送る"}</button>
+        {message && (
+          <p className="notice" role="status">
+            {message}
+          </p>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="secondary" disabled={busy}>
+          {busy ? "送信中…" : "確認メールを送る"}
+        </button>
       </form>
     </section>
   );
@@ -217,8 +245,14 @@ function WithdrawSection() {
           現在のパスワード
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
         </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button type="submit" className="danger" disabled={busy}>{busy ? "処理中…" : "退会する"}</button>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="danger" disabled={busy}>
+          {busy ? "処理中…" : "退会する"}
+        </button>
       </form>
     </section>
   );

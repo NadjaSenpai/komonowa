@@ -74,7 +74,10 @@ function extensionOf(filename: string) {
 function cleanFilename(name: string) {
   const base = name.split(/[\\/]/).pop() ?? "";
   // 制御文字と、ヘッダーで問題になる文字を除く
-  return base.replace(/[\u0000-\u001f\u007f"]/g, "").trim().slice(0, 200);
+  return base
+    .replace(/[\u0000-\u001f\u007f"]/g, "")
+    .trim()
+    .slice(0, 200);
 }
 
 /** multipart の file を検証して取り出す。種類は拡張子で決め、中身の先頭バイトと照合する */
@@ -279,9 +282,7 @@ attachments.delete("/attachments/:id", requireAuth, async (c) => {
   if (row.article_id === null && row.uploaded_by !== c.var.user.id) fail(404, "ファイルが見つかりません");
   if (row.uploaded_by !== c.var.user.id && c.var.user.role !== "admin") fail(403, "添付した本人か管理者のみ削除できます");
   // 消すと本文の画像やリンクが切れるので、どこかの記事（ごみ箱も含む）の本文で使われていたら断る。古い版は見ない
-  const usedIn = await c.env.DB.prepare(
-    "SELECT title, deleted_at FROM articles WHERE instr(body, ?) > 0 ORDER BY deleted_at IS NOT NULL LIMIT 1",
-  )
+  const usedIn = await c.env.DB.prepare("SELECT title, deleted_at FROM articles WHERE instr(body, ?) > 0 ORDER BY deleted_at IS NOT NULL LIMIT 1")
     .bind(`/api/attachments/${id}`)
     .first<{ title: string; deleted_at: number | null }>();
   if (usedIn) {

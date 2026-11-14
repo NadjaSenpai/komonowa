@@ -118,7 +118,9 @@ export function AvatarCropper({ file, onCancel, onDone }: Props) {
     >
       <h2 id="cropper-title">アイコンの範囲</h2>
       {error ? (
-        <p className="error" role="alert">{error}</p>
+        <p className="error" role="alert">
+          {error}
+        </p>
       ) : (
         <>
           <div
@@ -156,9 +158,13 @@ export function AvatarCropper({ file, onCancel, onDone }: Props) {
         </>
       )}
       <div className="actions">
-        <button type="button" className="secondary" onClick={onCancel}>キャンセル</button>
+        <button type="button" className="secondary" onClick={onCancel}>
+          キャンセル
+        </button>
         {!error && (
-          <button type="button" disabled={!size || busy} onClick={apply}>この範囲で決定</button>
+          <button type="button" disabled={!size || busy} onClick={apply}>
+            この範囲で決定
+          </button>
         )}
       </div>
     </dialog>

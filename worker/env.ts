@@ -12,6 +12,5 @@ export interface AppEnv {
   Bindings: Env;
   Variables: {
     user: SessionUser;
-    sessionHash: string;
   };
 }

@@ -26,9 +26,19 @@ export function MarkupToolbar({ disabled, onAction }: { disabled: boolean; onAct
   const primary = ["heading", "bold", "link", "bullet"];
   function renderButton(b: (typeof buttons)[number]) {
     return (
-      <button key={b.action} type="button" className="secondary small" title={b.hint} aria-label={b.hint} disabled={disabled}
+      <button
+        key={b.action}
+        type="button"
+        className="secondary small"
+        title={b.hint}
+        aria-label={b.hint}
+        disabled={disabled}
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => { onAction(b.action); if (more.current) more.current.open = false; }}>
+        onClick={() => {
+          onAction(b.action);
+          if (more.current) more.current.open = false;
+        }}
+      >
         {b.label}
       </button>
     );
@@ -36,12 +46,26 @@ export function MarkupToolbar({ disabled, onAction }: { disabled: boolean; onAct
   return (
     <div className="markup-toolbar" role="group" aria-label="書式">
       {primary.map((action) => renderButton(buttons.find((b) => b.action === action)!))}
-      {!disabled && <details className="markup-more" ref={more}
-        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.open = false; }}
-        onKeyDown={(e) => { if (e.key === "Escape") { e.currentTarget.open = false; e.currentTarget.querySelector("summary")?.focus(); } }}>
-        <summary>その他 <span aria-hidden="true">▾</span></summary>
-        <div className="markup-more-panel">{buttons.filter((b) => !primary.includes(b.action)).map(renderButton)}</div>
-      </details>}
+      {!disabled && (
+        <details
+          className="markup-more"
+          ref={more}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.open = false;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.currentTarget.open = false;
+              e.currentTarget.querySelector("summary")?.focus();
+            }
+          }}
+        >
+          <summary>
+            その他 <span aria-hidden="true">▾</span>
+          </summary>
+          <div className="markup-more-panel">{buttons.filter((b) => !primary.includes(b.action)).map(renderButton)}</div>
+        </details>
+      )}
     </div>
   );
 }

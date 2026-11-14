@@ -29,18 +29,25 @@ describe("ローカルセキュリティ監査：認証・権限・入力", () =
     const admin = await adminClient();
     const { client } = await memberClient(admin);
     const old = client.cookie;
-    const forged = new Client(); forged.cookie = old + "tampered";
+    const forged = new Client();
+    forged.cookie = old + "tampered";
     expect((await forged.get("/api/articles")).status).toBe(401);
     await client.post("/api/auth/logout");
     forged.cookie = old;
     expect((await forged.get("/api/articles")).status).toBe(401);
-    await env.DB.prepare("UPDATE sessions SET expires_at = ?").bind(Date.now() - 1).run();
+    await env.DB.prepare("UPDATE sessions SET expires_at = ?")
+      .bind(Date.now() - 1)
+      .run();
     expect((await admin.get("/api/articles")).status).toBe(401);
   });
 
   it.each(["text/plain", "application/x-www-form-urlencoded"])("他サイトの %s POST で記事を作成できない", async (contentType) => {
     const admin = await adminClient();
-    const res = await admin.request("/api/articles", { method: "POST", headers: { origin: "https://attacker.invalid", "sec-fetch-site": "cross-site", "content-type": contentType }, body: JSON.stringify({ title: "csrf", body: "attack", tags: [] }) });
+    const res = await admin.request("/api/articles", {
+      method: "POST",
+      headers: { origin: "https://attacker.invalid", "sec-fetch-site": "cross-site", "content-type": contentType },
+      body: JSON.stringify({ title: "csrf", body: "attack", tags: [] }),
+    });
     expect(res.status).toBe(403);
     expect((await json(await admin.get("/api/articles"))).articles).toHaveLength(0);
   });
@@ -91,7 +98,15 @@ describe("再認証の試行制限", () => {
     const { client } = await memberClient(admin);
     const statuses: number[] = [];
     for (let i = 0; i < 12; i++) {
-      statuses.push((await client.post(`/api/auth/${route}`, { email: "audit-change@example.com", newPassword: "audit-next-password-123", currentPassword: `wrong-audit-${i}` })).status);
+      statuses.push(
+        (
+          await client.post(`/api/auth/${route}`, {
+            email: "audit-change@example.com",
+            newPassword: "audit-next-password-123",
+            currentPassword: `wrong-audit-${i}`,
+          })
+        ).status,
+      );
     }
     expect(statuses).toEqual([...Array(10).fill(403), 429, 429]);
   });
@@ -111,7 +126,11 @@ describe("再認証の試行制限", () => {
   it("同時30回でも照合は10回までで、超過分を記録に残さない", async () => {
     const admin = await adminClient();
     const member = await memberClient(admin);
-    const clients = Array.from({ length: 30 }, () => { const c = new Client(); c.cookie = member.client.cookie; return c; });
+    const clients = Array.from({ length: 30 }, () => {
+      const c = new Client();
+      c.cookie = member.client.cookie;
+      return c;
+    });
     const results = await Promise.all(clients.map((c, i) => c.post(`/api/auth/${["email", "password", "withdraw"][i % 3]}`, payload("wrong"))));
     expect(results.filter((r) => r.status === 403)).toHaveLength(10);
     expect(results.filter((r) => r.status === 429)).toHaveLength(20);
@@ -123,7 +142,9 @@ describe("再認証の試行制限", () => {
     const member = await memberClient(admin);
     for (let i = 0; i < 10; i++) await member.client.post("/api/auth/password", payload("wrong"));
     expect((await member.client.post("/api/auth/password", payload(member.password))).status).toBe(429);
-    await env.DB.prepare("UPDATE reauth_failures SET created_at = ? WHERE user_id = ?").bind(Date.now() - 15 * 60 * 1000 - 1, member.user.id).run();
+    await env.DB.prepare("UPDATE reauth_failures SET created_at = ? WHERE user_id = ?")
+      .bind(Date.now() - 15 * 60 * 1000 - 1, member.user.id)
+      .run();
     expect((await member.client.post("/api/auth/password", payload(member.password))).status).toBe(200);
   });
 

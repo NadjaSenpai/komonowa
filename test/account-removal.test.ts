@@ -39,7 +39,7 @@ describe("退会（本人）", () => {
 
     const owner = await admin.post("/api/auth/withdraw", { currentPassword: ADMIN.password });
     expect(owner.status).toBe(409);
-    expect((await json(owner)).error).toBe("所有者は退会できません。先にほかの管理者に所有者を譲ってください");
+    expect((await json(owner)).error).toBe("所有者は退会できません。先にほかの管理者に所有者を譲ってください（手順は運用手順書の「所有者」）");
 
     // 所有者が無効（ありえないが）でも、有効な管理者が 0 人になる退会は断る
     const second = await memberClient(admin, "admin");

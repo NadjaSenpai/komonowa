@@ -4,28 +4,29 @@
 
 A private team wiki on Cloudflare Workers. See `README.md` for features and design.
 
-- `worker/`: Hono API. `routes/` holds endpoints; `session.ts` enforces authentication and roles; `crypto.ts` handles password hashing and tokens.
+- `worker/`: Hono API. `routes/` holds endpoints; `session.ts` enforces authentication and roles; `crypto.ts` handles password hashing and tokens; `cleanup.ts` is the daily cron that purges expired rows.
 - `src/`: React UI. `pages/` holds screens; `api.ts` is the fetch client; `markdown.ts` renders sanitized Markdown.
+- `shared/`: code used by both the API and the UI (wiki link parsing, account constants).
 - `migrations/`: D1 schema as numbered SQL files. Never edit an applied migration; add a new one.
-- `test/`: API tests that run inside the Workers runtime.
+- `test/`: API tests that run inside the Workers runtime. UI logic tests live in `src/__tests__/`.
 - `scripts/`: D1/R2 backup and restore (`docs/operations.md`).
 - `docs/superpowers/`: spec and plan. `wiki-mock/` is an old static mock; it is git-ignored and not part of the app.
 
 ## Build, Test, and Development
 
-Requires Node.js 22+. Run `npm install`, copy `.dev.vars.example` to `.dev.vars`, then `npm run db:migrate:local` and `npm run dev`. Run `npm run check` (typecheck, tests, build) before committing. After changing bindings in `wrangler.jsonc`, run `npm run cf-typegen`.
+Requires Node.js 22+. Run `npm install`, copy `.dev.vars.example` to `.dev.vars`, then `npm run db:migrate:local` and `npm run dev`. Run `npm run check` (lint, typecheck, tests, build) before committing; CI runs the same command on pushes to `main` and on pull requests. After changing bindings in `wrangler.jsonc`, run `npm run cf-typegen`.
 
 ## Style and Naming
 
-Follow the conventions of the files and tools introduced to the project. Use descriptive file and directory names, consistent indentation, and a formatter or linter appropriate to the language. Document any required formatting command alongside the development commands.
+Follow the conventions of the files and tools introduced to the project. Biome formats and lints TypeScript and JSON (2 spaces, double quotes, 160 columns; see `biome.json`): `npm run lint` checks, `npm run format` fixes. CSS is not formatted; keep its one-rule-per-line layout.
 
 ## Testing
 
-`npm test` runs `test/**/*.test.ts` with `@cloudflare/vitest-plugin`; D1 and R2 are reset and migrated before every test. Run one file with `npx vitest run test/articles.test.ts`. Cover authorization (unauthenticated, member, admin) for every new endpoint.
+`npm test` runs `test/**/*.test.ts` with `@cloudflare/vitest-plugin` (D1 and R2 are reset and migrated before every test) and `src/**/*.test.ts` and `shared/**/*.test.ts` with jsdom. Run one file with `npx vitest run test/articles.test.ts`. Cover authorization (unauthenticated, member, admin) for every new endpoint.
 
 ## Commits and Pull Requests
 
-Write concise, imperative commit subjects that describe the change, such as `Add initial wiki structure`. Keep each commit focused. Pull requests should explain the purpose and changes, describe how they were checked, and link relevant issues. Include screenshots when a change affects a visible interface.
+Use Conventional Commits: `type(scope): description`, such as `fix(security): rate limit password checks`. Keep each commit focused. Put changes that may be destructive (schema migrations, deletions, permission or authentication changes) in a pull request instead of pushing to `main`. Pull requests should explain the purpose and changes, describe how they were checked, and link relevant issues. Include screenshots when a change affects a visible interface.
 
 ## Configuration and Secrets
 

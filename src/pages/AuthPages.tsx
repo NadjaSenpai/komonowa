@@ -40,7 +40,10 @@ export function LoginPage() {
   const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
-    api.get<{ needsSetup: boolean }>("/auth/setup").then((r) => setNeedsSetup(r.needsSetup)).catch(() => undefined);
+    api
+      .get<{ needsSetup: boolean }>("/auth/setup")
+      .then((r) => setNeedsSetup(r.needsSetup))
+      .catch(() => undefined);
   }, []);
 
   if (user) return <Navigate to="/" replace />;
@@ -77,17 +80,50 @@ export function LoginPage() {
         <label>
           パスワード
           <span className="password-field">
-            <input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button type="button" className="secondary" aria-controls="login-password" aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? "隠す" : "表示"}</button>
+            <input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button
+              type="button"
+              className="secondary"
+              aria-controls="login-password"
+              aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"}
+              onClick={() => setShowPassword((shown) => !shown)}
+            >
+              {showPassword ? "隠す" : "表示"}
+            </button>
           </span>
         </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button type="submit" disabled={busy}>ログイン</button>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={busy}>
+          ログイン
+        </button>
       </form>
       <div className="auth-help small">
-        <p><strong>登録について</strong><br />アカウントは管理者からの招待で作成します。</p>
-        <p><strong>パスワードを忘れた場合</strong><br />管理者に再設定リンクの発行を依頼してください。</p>
-        <p><strong>使い方</strong><br /><Link to="/help">ヘルプ</Link>をご覧ください。</p>
+        <p>
+          <strong>登録について</strong>
+          <br />
+          アカウントは管理者からの招待で作成します。
+        </p>
+        <p>
+          <strong>パスワードを忘れた場合</strong>
+          <br />
+          管理者に再設定リンクの発行を依頼してください。
+        </p>
+        <p>
+          <strong>使い方</strong>
+          <br />
+          <Link to="/help">ヘルプ</Link>をご覧ください。
+        </p>
       </div>
     </AuthCard>
   );
@@ -122,11 +158,26 @@ export function SetupPage() {
     <AuthCard title="初期設定（最初の管理者）">
       <p className="muted small">デプロイ時に設定した SETUP_TOKEN を入力します。管理者を作成すると、この画面は使えなくなります。</p>
       <form onSubmit={submit} className="stack">
-        <label>セットアップトークン<input type="password" autoComplete="off" {...field("token")} /></label>
-        <label>表示名<input {...field("name")} /></label>
-        <label>メールアドレス<input type="email" autoComplete="username" {...field("email")} /></label>
-        <label>パスワード（{PASSWORD_HINT}）<input type="password" autoComplete="new-password" minLength={12} {...field("password")} /></label>
-        {error && <p className="error" role="alert">{error}</p>}
+        <label>
+          セットアップトークン
+          <input type="password" autoComplete="off" {...field("token")} />
+        </label>
+        <label>
+          表示名
+          <input {...field("name")} />
+        </label>
+        <label>
+          メールアドレス
+          <input type="email" autoComplete="username" {...field("email")} />
+        </label>
+        <label>
+          パスワード（{PASSWORD_HINT}）<input type="password" autoComplete="new-password" minLength={12} {...field("password")} />
+        </label>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
         <button type="submit">管理者を作成</button>
       </form>
     </AuthCard>
@@ -143,7 +194,10 @@ export function InvitePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.post<{ email: string }>("/auth/invite/check", { token }).then((r) => setEmail(r.email)).catch((err) => setError(errorMessage(err)));
+    api
+      .post<{ email: string }>("/auth/invite/check", { token })
+      .then((r) => setEmail(r.email))
+      .catch((err) => setError(errorMessage(err)));
   }, [token]);
 
   async function submit(e: FormEvent) {
@@ -162,16 +216,30 @@ export function InvitePage() {
   return (
     <AuthCard title="komonowa に参加">
       {email === null ? (
-        error ? <p className="error">{error}</p> : <p className="muted">確認中…</p>
+        error ? (
+          <p className="error">{error}</p>
+        ) : (
+          <p className="muted">確認中…</p>
+        )
       ) : (
         <form onSubmit={submit} className="stack">
-          <label>メールアドレス<input value={email} readOnly /></label>
-          <label>表示名<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={50} /></label>
+          <label>
+            メールアドレス
+            <input value={email} readOnly />
+          </label>
+          <label>
+            表示名
+            <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={50} />
+          </label>
           <label>
             パスワード（{PASSWORD_HINT}）
             <input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
-          {error && <p className="error" role="alert">{error}</p>}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
           <button type="submit">登録する</button>
         </form>
       )}
@@ -187,7 +255,10 @@ export function ResetPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    api.post<{ email: string }>("/auth/reset/check", { token }).then((r) => setEmail(r.email)).catch((err) => setError(errorMessage(err)));
+    api
+      .post<{ email: string }>("/auth/reset/check", { token })
+      .then((r) => setEmail(r.email))
+      .catch((err) => setError(errorMessage(err)));
   }, [token]);
 
   async function submit(e: FormEvent) {
@@ -208,15 +279,26 @@ export function ResetPage() {
           パスワードを変更しました。<Link to="/login">ログイン</Link>してください。
         </p>
       ) : email === null ? (
-        error ? <p className="error">{error}</p> : <p className="muted">確認中…</p>
+        error ? (
+          <p className="error">{error}</p>
+        ) : (
+          <p className="muted">確認中…</p>
+        )
       ) : (
         <form onSubmit={submit} className="stack">
-          <label>メールアドレス<input value={email} readOnly /></label>
+          <label>
+            メールアドレス
+            <input value={email} readOnly />
+          </label>
           <label>
             新しいパスワード（{PASSWORD_HINT}）
             <input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
-          {error && <p className="error" role="alert">{error}</p>}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
           <button type="submit">変更する</button>
         </form>
       )}
@@ -260,8 +342,14 @@ export function EmailConfirmPage() {
       ) : (
         <form onSubmit={submit} className="stack">
           <p>ボタンを押すと、このメールアドレスに変更します。</p>
-          {error && <p className="error" role="alert">{error}</p>}
-          <button type="submit" disabled={busy || !token}>{busy ? "変更中…" : "変更を確定する"}</button>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <button type="submit" disabled={busy || !token}>
+            {busy ? "変更中…" : "変更を確定する"}
+          </button>
         </form>
       )}
     </AuthCard>

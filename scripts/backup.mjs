@@ -16,9 +16,20 @@ console.log(`[1/3] D1 をエクスポート → ${path.join(outDir, "d1.sql")}`)
 wrangler(["d1", "export", DB_NAME, mode, "--output", path.join(outDir, "d1.sql")]);
 
 console.log("[2/3] 添付ファイルとアイコン画像の一覧を取得");
-const out = wrangler(["d1", "execute", DB_NAME, mode, "--json", "--command", "SELECT r2_key, content_type, size FROM attachments UNION ALL SELECT 'avatars/' || id || '/' || avatar_id, avatar_type, NULL FROM users WHERE avatar_id IS NOT NULL ORDER BY 1"], {
-  capture: true,
-});
+const out = wrangler(
+  [
+    "d1",
+    "execute",
+    DB_NAME,
+    mode,
+    "--json",
+    "--command",
+    "SELECT r2_key, content_type, size FROM attachments UNION ALL SELECT 'avatars/' || id || '/' || avatar_id, avatar_type, NULL FROM users WHERE avatar_id IS NOT NULL ORDER BY 1",
+  ],
+  {
+    capture: true,
+  },
+);
 const files = JSON.parse(out)[0].results;
 
 console.log(`[3/3] R2 から ${files.length} 件をダウンロード`);

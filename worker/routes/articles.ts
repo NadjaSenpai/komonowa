@@ -57,10 +57,7 @@ const DUPLICATE_TITLE = "同じタイトルの記事がすでにあります";
 
 /** ごみ箱にない、ほかの記事が同じタイトルキーを使っていれば 409 */
 export async function assertTitleFree(db: D1Database, key: string, exceptId: string, message = DUPLICATE_TITLE) {
-  const clash = await db
-    .prepare("SELECT 1 FROM articles WHERE title_key = ? AND deleted_at IS NULL AND id <> ?")
-    .bind(key, exceptId)
-    .first();
+  const clash = await db.prepare("SELECT 1 FROM articles WHERE title_key = ? AND deleted_at IS NULL AND id <> ?").bind(key, exceptId).first();
   if (clash) fail(409, message);
 }
 
@@ -322,7 +319,10 @@ articles.delete("/:id", async (c) => {
   // ごみ箱に入れたら共有も止める（戻したときに、忘れていた共有が勝手に再開しないように）
   const [res] = await c.env.DB.batch([
     c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL").bind(Date.now(), c.var.user.id, id),
-    c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ? AND EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NOT NULL)").bind(id, id),
+    c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ? AND EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NOT NULL)").bind(
+      id,
+      id,
+    ),
   ]);
   if (res!.meta.changes === 0) fail(404, "記事が見つかりません");
   return c.json({ ok: true });
@@ -336,9 +336,7 @@ async function findShare(db: D1Database, articleId: string, origin: string) {
     )
     .bind(articleId)
     .first<{ token: string; passcode: string | null; created_at: number; created_by_name: string }>();
-  return row
-    ? { url: `${origin}/s/${row.token}`, passcode: row.passcode, created_at: row.created_at, created_by_name: row.created_by_name }
-    : null;
+  return row ? { url: `${origin}/s/${row.token}`, passcode: row.passcode, created_at: row.created_at, created_by_name: row.created_by_name } : null;
 }
 
 /** 共有を始める。メンバーなら誰でも、どの記事でも。すでに共有中ならその共有を返す */

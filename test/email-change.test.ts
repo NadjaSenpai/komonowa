@@ -106,7 +106,9 @@ describe("メールアドレス変更の確定", () => {
     const latest = await request(member.client, "latest@example.com", member.password);
     expect((await confirm(old)).status).toBe(410);
 
-    await env.DB.prepare("UPDATE email_changes SET expires_at = ? WHERE token_hash = ?").bind(Date.now() - 1, await sha256(latest)).run();
+    await env.DB.prepare("UPDATE email_changes SET expires_at = ? WHERE token_hash = ?")
+      .bind(Date.now() - 1, await sha256(latest))
+      .run();
     expect((await confirm(latest)).status).toBe(410);
     expect((await confirm("x".repeat(43))).status).toBe(410);
     expect((await confirm("short")).status).toBe(400);
@@ -117,7 +119,9 @@ describe("メールアドレス変更の確定", () => {
     const member = await memberClient(admin);
     const token = await request(member.client, "race@example.com", member.password);
     await admin.post("/api/admin/invites", { email: "race@example.com" });
-    expect((await new Client().post("/api/auth/invite/accept", { token: tokenFrom(lastMail()), name: "先に登録", password: "race-member-pass" })).status).toBe(201);
+    expect((await new Client().post("/api/auth/invite/accept", { token: tokenFrom(lastMail()), name: "先に登録", password: "race-member-pass" })).status).toBe(
+      201,
+    );
 
     const res = await confirm(token);
     expect(res.status).toBe(409);

@@ -1,21 +1,19 @@
 # 引き継ぎ：komonowa
 
-## 目標
+## 状況（2026-11-15 時点）
 
-`github.com/nadjasenpai/wiki` に実用的なチーム専用ナレッジベースを実装し、検証して push する。本番デプロイは今回の対象外。仕様は `docs/superpowers/specs/2026-11-11-team-wiki-design.md`、作業計画は `docs/superpowers/plans/2026-11-11-team-wiki.md` を参照。
+- リポジトリは `github.com/NadjaSenpai/komonowa`。本番は `https://komonowa.nadja.app/`（`wrangler.jsonc` の `routes`）で公開中。
+- 機能と設計は `README.md`、運用は `docs/operations.md`、機能ごとの仕様と計画は `docs/superpowers/` を参照。
+- `npm run check`（整形とリント・型検査・テスト・本番ビルド）が成功する状態を保つ。GitHub Actions でも同じコマンドを実行する。
+- セキュリティの確認結果は `docs/security-local-2026-11-15.md`。
 
-ユーザーはフレンドリーでカジュアルなサメ「フカ」としての応対を希望。語尾は「だよー」など。人の絵文字は使わない。
+## デプロイ時の注意
 
-## 状況（2026-11-11 時点）
+- マイグレーションを適用してからデプロイする（`npm run db:migrate:remote` → `npm run build && npx wrangler deploy`）。
+- `0012_reauth_failures.sql` と `0013_article_cover.sql` を本番に適用したかは、`npx wrangler d1 migrations list wiki-db --remote` で確認する。
 
-- 計画のタスク 1〜6 を実装済み。`npm run check`（型チェック・テスト 34 件・ビルド）が成功。
-- `vite dev` 上で、ログイン・日本語記事の作成・検索とタグ絞り込み・添付の保存と認証付き取得・競合検知・招待・SPA ルーティングを確認済み。
-- `scripts/backup.mjs` でローカル D1/R2 をバックアップし、空の状態へ復元して件数と添付のバイト一致を確認済み。
-- ブラウザでの画面操作は未確認（この環境にブラウザ操作ツールがなかったため）。
-- `wiki-mock/` は `.gitignore` 済みで、削除していない。
-- ローカルで `git init`（ブランチ `main`）済み。GitHub は未認証で、リポジトリは匿名では 404（非公開か未作成）。
+## 残っていること
 
-## 次にやること
-
-1. ブラウザで主要画面（初期設定、招待登録、編集とプレビュー、履歴、管理、添付）を確認する。
-2. GitHub に認証し、リポジトリの有無と既存の履歴を確認してから push する。認証情報は会話やファイルに書き出さない。
+- リントの警告 9 件（アクセシビリティ）。`npm run lint` で一覧できる。
+- 無効化した人が始めた外部共有は続く（強制退会では止まる）。そろえるかは未決定。
+- 認証情報は会話やファイルに書き出さない。

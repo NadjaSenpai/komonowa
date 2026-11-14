@@ -30,5 +30,7 @@
       "bucket_name": "wiki-files"
     }
   ],
+  // 期限切れのセッションやトークンを毎日 03:00（JST）に消す（worker/cleanup.ts）
+  "triggers": { "crons": ["0 18 * * *"] },
   "observability": { "enabled": true }
 }

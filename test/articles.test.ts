@@ -95,8 +95,7 @@ describe("検索とタグ", () => {
     await createArticle(admin, { title: "プリンター設定", body: "ネットワークプリンターの手順", tags: ["手順"] });
     await createArticle(admin, { title: "100% 完了の定義", body: "a_b", tags: ["ネットワーク"] });
 
-    const titles = async (qs: string) =>
-      (await json(await admin.get(`/api/articles?${qs}`))).articles.map((a: any) => a.title).sort();
+    const titles = async (qs: string) => (await json(await admin.get(`/api/articles?${qs}`))).articles.map((a: any) => a.title).sort();
 
     expect(await titles(`q=${encodeURIComponent("手順")}`)).toEqual(["VPN 接続手順", "プリンター設定"]);
     expect(await titles(`q=${encodeURIComponent("接続 社外")}`)).toEqual(["VPN 接続手順"]);

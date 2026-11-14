@@ -62,9 +62,7 @@ admin.patch("/users/:id", async (c) => {
   }
   if (status === "disabled") {
     await revokeUserSessions(c.env.DB, id);
-    await c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL")
-      .bind(Date.now(), id)
-      .run();
+    await c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(Date.now(), id).run();
   }
   return c.json({ ok: true });
 });
@@ -94,15 +92,16 @@ admin.post("/users/:id/reset-link", async (c) => {
   const token = randomToken();
   const now = Date.now();
   const expires = now + 24 * HOUR;
-  await sendOrFail(
-    c.env,
-    resetMail({ to: user.email, sender: c.var.user.name, url: `${new URL(c.req.url).origin}/reset#${token}`, expiresAt: expires }),
-  );
+  await sendOrFail(c.env, resetMail({ to: user.email, sender: c.var.user.name, url: `${new URL(c.req.url).origin}/reset#${token}`, expiresAt: expires }));
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, id),
-    c.env.DB.prepare(
-      "INSERT INTO auth_tokens (token_hash, kind, user_id, created_by, expires_at, created_at) VALUES (?, 'reset', ?, ?, ?, ?)",
-    ).bind(await sha256(token), id, c.var.user.id, expires, now),
+    c.env.DB.prepare("INSERT INTO auth_tokens (token_hash, kind, user_id, created_by, expires_at, created_at) VALUES (?, 'reset', ?, ?, ?, ?)").bind(
+      await sha256(token),
+      id,
+      c.var.user.id,
+      expires,
+      now,
+    ),
   ]);
   return c.json({ expiresAt: expires }, 201);
 });
@@ -135,16 +134,18 @@ admin.post("/invites", async (c) => {
   const now = Date.now();
   const expires = now + hours * HOUR;
   // 先に送り、送れたときだけ記録する（失敗しても前の招待はそのまま使える）
-  await sendOrFail(
-    c.env,
-    inviteMail({ to: addr, inviter: c.var.user.name, role, url: `${new URL(c.req.url).origin}/invite#${token}`, expiresAt: expires }),
-  );
+  await sendOrFail(c.env, inviteMail({ to: addr, inviter: c.var.user.name, role, url: `${new URL(c.req.url).origin}/invite#${token}`, expiresAt: expires }));
   await c.env.DB.batch([
     // 同じアドレスへの未使用の招待は置き換える
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND email = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, addr),
-    c.env.DB.prepare(
-      "INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES (?, 'invite', ?, ?, ?, ?, ?)",
-    ).bind(await sha256(token), addr, role, c.var.user.id, expires, now),
+    c.env.DB.prepare("INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES (?, 'invite', ?, ?, ?, ?, ?)").bind(
+      await sha256(token),
+      addr,
+      role,
+      c.var.user.id,
+      expires,
+      now,
+    ),
   ]);
   return c.json({ expiresAt: expires }, 201);
 });
@@ -172,17 +173,13 @@ admin.get("/trash", async (c) => {
 
 admin.post("/trash/:id/restore", async (c) => {
   const id = c.req.param("id");
-  const trashed = await c.env.DB.prepare("SELECT title_key FROM articles WHERE id = ? AND deleted_at IS NOT NULL")
-    .bind(id)
-    .first<{ title_key: string }>();
+  const trashed = await c.env.DB.prepare("SELECT title_key FROM articles WHERE id = ? AND deleted_at IS NOT NULL").bind(id).first<{ title_key: string }>();
   if (!trashed) fail(404, "ごみ箱に記事が見つかりません");
   // ごみ箱の記事はタイトルを確保していないので、その間に同じタイトルの記事ができていることがある
   await assertTitleFree(c.env.DB, trashed.title_key, id, RESTORE_CLASH);
   let res: D1Result;
   try {
-    res = await c.env.DB.prepare("UPDATE articles SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL")
-      .bind(id)
-      .run();
+    res = await c.env.DB.prepare("UPDATE articles SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL").bind(id).run();
   } catch (err) {
     if (err instanceof Error && err.message.includes("UNIQUE constraint failed")) fail(409, RESTORE_CLASH);
     throw err;
@@ -199,8 +196,9 @@ admin.delete("/trash/:id", async (c) => {
   const { results } = await c.env.DB.prepare("SELECT r2_key, thumb_key FROM attachments WHERE article_id = ?")
     .bind(id)
     .all<{ r2_key: string; thumb_key: string | null }>();
-  await deleteObjects(c.env, results);
+  // 先に D1 から消す。R2 が後で失敗しても、参照されないファイルが残るだけで済む（逆だと、添付の消えた記事が残る）
   await c.env.DB.prepare("DELETE FROM articles WHERE id = ? AND deleted_at IS NOT NULL").bind(id).run();
+  await deleteObjects(c.env, results);
   return c.json({ ok: true });
 });
 
