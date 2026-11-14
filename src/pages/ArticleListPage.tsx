@@ -134,7 +134,12 @@ export function ArticleListPage() {
           {items?.map((a) => (
             <li key={a.id}>
               <Link to={`/articles/${a.id}`} className="title">{a.title}</Link>
-              <p className="excerpt">{markdownToText(a.excerpt).slice(0, 120)}</p>
+              {/* 抜粋を押しても記事を開く。タイトルと同じリンク先なので、読み上げとキーボードの移動からは外す */}
+              <p className="excerpt">
+                <Link to={`/articles/${a.id}`} className="excerpt-link" tabIndex={-1} aria-hidden="true">
+                  {markdownToText(a.excerpt).slice(0, 120)}
+                </Link>
+              </p>
               <div className="list-item-meta">
                 <div className="tags article-tags">
                 {a.tags.map((t) => (
