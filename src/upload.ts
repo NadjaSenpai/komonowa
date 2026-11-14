@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { makeThumbnail } from "./thumbnail";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const ACCEPT = ".png,.jpg,.jpeg,.gif,.webp,.pdf,.docx,.xlsx,.pptx,.odt,.ods,.odp,.doc,.xls,.ppt,.txt,.md,.csv,.zip";
@@ -32,6 +33,9 @@ export async function uploadAttachment(file: File, articleId?: string): Promise<
   if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name}: ファイルは10MBまでです`);
   const form = new FormData();
   form.append("file", file);
+  // 一覧に出す小さい版。作れなければ元の画像だけ送る
+  const thumb = await makeThumbnail(file);
+  if (thumb) form.append("thumb", thumb, thumb.type === "image/webp" ? "thumb.webp" : "thumb.jpg");
   const path = articleId ? `/articles/${articleId}/attachments` : "/attachments";
   return (await api.post<{ attachment: UploadedAttachment }>(path, form)).attachment;
 }

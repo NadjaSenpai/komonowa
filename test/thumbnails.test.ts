@@ -45,6 +45,10 @@ describe("添付画像の小さい版", () => {
     const webp = (await json(await upload(client, article.id, PNG, "b.png", WEBP_THUMB, "thumb.webp"))).attachment;
     const got = await client.get(`${webp.url}/thumb`);
     expect(got.headers.get("content-type")).toBe("image/webp");
+
+    // WebP を作れないブラウザは JPEG で送る
+    const jpeg = (await json(await upload(client, article.id, PNG, "c.png", new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1]), "thumb.jpg"))).attachment;
+    expect((await client.get(`${jpeg.url}/thumb`)).headers.get("content-type")).toBe("image/jpeg");
   });
 
   it("小さい版がなければ元の画像を返す（R2 から消えていても）", async () => {
@@ -60,7 +64,7 @@ describe("添付画像の小さい版", () => {
     expect(await bytesOf(fallback)).toEqual(PNG);
   });
 
-  it("画像以外や、WebP・PNG 以外、大きすぎる小さい版は断る", async () => {
+  it("画像以外や、WebP・JPEG・PNG 以外、大きすぎる小さい版は断る", async () => {
     const admin = await adminClient();
     const article = await createArticle(admin);
     expect((await upload(admin, article.id, PDF, "a.pdf", THUMB)).status).toBe(400);

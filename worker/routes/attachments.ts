@@ -4,7 +4,7 @@ import { fail } from "../http";
 import { requireAuth } from "../session";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-/** 一覧に出す小さい版（長辺 400px の WebP か PNG）の上限 */
+/** 一覧に出す小さい版（長辺 400px の WebP。作れないブラウザでは JPEG）の上限 */
 export const MAX_THUMB_BYTES = 200 * 1024;
 
 type Kind = "image" | "pdf" | "zip" | "ole" | "text";
@@ -100,15 +100,15 @@ async function readUpload(c: Context<AppEnv>) {
   return { filename, type, bytes, thumb: await readThumb(form, type) };
 }
 
-/** 画像に添えられた小さい版。WebP か PNG だけを受け付け、種類は中身で決める */
+/** 画像に添えられた小さい版。WebP・JPEG・PNG だけを受け付け、種類は中身で決める */
 async function readThumb(form: FormData, type: FileType) {
   const thumb = form.get("thumb");
   if (thumb === null) return null;
   if (!(thumb instanceof File) || thumb.size === 0 || type.kind !== "image") fail(400, "小さい版の画像が正しくありません");
   if (thumb.size > MAX_THUMB_BYTES) fail(413, "小さい版の画像は200KBまでです");
   const bytes = new Uint8Array(await thumb.arrayBuffer());
-  const ext = ["webp", "png"].find((e) => contentMatches(e, bytes));
-  if (!ext) fail(415, "小さい版は WebP か PNG にしてください");
+  const ext = ["webp", "jpg", "png"].find((e) => contentMatches(e, bytes));
+  if (!ext) fail(415, "小さい版は WebP・JPEG・PNG にしてください");
   return { bytes, mime: TYPES[ext]!.mime };
 }
 

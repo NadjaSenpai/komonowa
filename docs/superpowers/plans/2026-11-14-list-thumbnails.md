@@ -12,7 +12,8 @@
 
 ## Global Constraints
 
-- 長辺 400px 以内、WebP（非対応なら PNG）。小さい版は WebP か PNG のみ、200KB まで（超えたら 413）
+- 長辺 400px 以内、WebP（作れないブラウザでは JPEG）。小さい版は WebP・JPEG・PNG のみ、200KB まで（超えたら 413）
+- Ruling（Task 3）：iPhone の Safari は WebP を作れず、PNG だと写真で 200KB を超えやすいため、JPEG を受け付けるよう spec を改めた
 - 元のファイルが画像でないのに `thumb` があれば 400
 - `/thumb` の見える・見えないは `GET /api/attachments/:id` と同じ判定
 - 適用済みのマイグレーションは編集しない（新しく `0007_attachment_thumbs.sql`）

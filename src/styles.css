@@ -159,7 +159,14 @@ button.link:hover { background: none; text-decoration: underline; }
 .article-list .title { font-weight: 700; font-size: var(--text-lg); color: var(--color-ink); text-decoration: none; }
 .article-list .title:hover { color: var(--color-accent); text-decoration: underline; }
 .article-list .excerpt-link { display: block; color: inherit; text-decoration: none; }
-.article-list li:has(.excerpt-link:hover) .title { color: var(--color-accent); text-decoration: underline; }
+.article-list li:has(.excerpt-link:hover, .cover:hover) .title { color: var(--color-accent); text-decoration: underline; }
+/* 本文の最初の画像を右側に小さく出す（スマホ 72px、広い画面 96px） */
+.article-list li.has-cover { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-md); }
+.article-list li.has-cover > * { grid-column: 1; }
+.article-list li.has-cover > .title { justify-self: start; }
+.article-list li.has-cover > .cover { grid-column: 2; grid-row: 1 / span 3; align-self: start; margin-top: var(--space-2xs); }
+.article-list .cover img { display: block; width: 96px; height: 96px; object-fit: cover; border-radius: var(--radius-control); background: var(--color-paper-3); border: 1px solid var(--color-rule); }
+@media (max-width: 760px) { .article-list .cover img { width: 72px; height: 72px; } }
 .excerpt { margin: var(--space-2xs) 0; max-width: var(--measure); color: var(--color-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
 .meta { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-sm); align-items: center; color: var(--color-muted); font-size: var(--text-xs); margin: var(--space-xs) 0 0; }
 .meta-item { white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-xs); }

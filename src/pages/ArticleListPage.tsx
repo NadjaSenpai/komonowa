@@ -14,6 +14,8 @@ interface ListItem {
   updated_by_name: string;
   updated_by_avatar: string | null;
   tags: string[];
+  /** 本文の最初の画像（添付 ID） */
+  cover: string | null;
 }
 
 interface Tag {
@@ -132,7 +134,12 @@ export function ArticleListPage() {
           ))}
         <ul className="article-list">
           {items?.map((a) => (
-            <li key={a.id}>
+            <li key={a.id} className={a.cover ? "has-cover" : undefined}>
+              {a.cover && (
+                <Link to={`/articles/${a.id}`} className="cover" tabIndex={-1} aria-hidden="true">
+                  <img src={`/api/attachments/${a.cover}/thumb`} alt="" loading="lazy" decoding="async" />
+                </Link>
+              )}
               <Link to={`/articles/${a.id}`} className="title">{a.title}</Link>
               {/* 抜粋を押しても記事を開く。タイトルと同じリンク先なので、読み上げとキーボードの移動からは外す */}
               <p className="excerpt">
