@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate } from "../api";
 import { Byline } from "../Avatar";
 import { markdownToText } from "../markdown";
+import { WelcomeNotice } from "../WelcomeNotice";
 
 interface ListItem {
   id: string;
@@ -74,6 +75,7 @@ export function ArticleListPage() {
         <div className="list-heading">
           <h1>記事</h1>
         </div>
+        <WelcomeNotice />
         <form onSubmit={submit} className="search">
           <input type="search" placeholder="キーワードで検索" title="空白で区切ると、すべてを含む記事を探します" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="検索" />
           <button type="submit" className="secondary">検索</button>

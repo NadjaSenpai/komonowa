@@ -145,7 +145,7 @@ export function InvitePage() {
     try {
       const r = await api.post<{ user: User }>("/auth/invite/accept", { token, name, password });
       setUser(r.user);
-      navigate("/", { replace: true });
+      navigate("/", { replace: true, state: { welcome: true } });
     } catch (err) {
       setError(errorMessage(err));
     }

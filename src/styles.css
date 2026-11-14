@@ -117,6 +117,7 @@ button.link:hover { background: none; text-decoration: underline; }
   .list-layout > section { grid-column: 1; grid-row: 2; }
 }
 .list-controls .search { margin-bottom: 0; }
+.list-controls > .notice { margin-bottom: var(--space-md); }
 .active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); margin-top: var(--space-sm); }
 .filter-chip { min-height: var(--hit); max-width: 100%; padding: var(--space-xs) var(--space-sm); background: var(--color-selected); color: var(--color-accent); border-color: var(--color-rule); font-size: var(--text-sm); font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
 .filter-chip span:first-child { min-width: 0; }
