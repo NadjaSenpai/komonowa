@@ -5,6 +5,10 @@ import path from "node:path";
 export const DB_NAME = "wiki-db";
 export const BUCKET = "wiki-files";
 
+export function redactSignedUrls(output) {
+  return output.replace(/https?:\/\/[^\s?]+\?[^\s]*X-Amz-[^\s]*/gi, "[redacted URL]");
+}
+
 const require = createRequire(import.meta.url);
 // package.json の bin を参照（wrangler は bin/ を exports していない）
 const pkgPath = require.resolve("wrangler/package.json");
@@ -28,8 +32,8 @@ export function wrangler(args, { capture = false, quiet = false } = {}) {
     maxBuffer: 256 * 1024 * 1024,
   });
   if (res.status !== 0) {
-    if (res.stdout) process.stderr.write(res.stdout);
-    if (res.stderr) process.stderr.write(res.stderr);
+    if (res.stdout) process.stderr.write(redactSignedUrls(res.stdout));
+    if (res.stderr) process.stderr.write(redactSignedUrls(res.stderr));
     console.error(`wrangler ${args.slice(0, 3).join(" ")} が失敗しました`);
     process.exit(res.status ?? 1);
   }

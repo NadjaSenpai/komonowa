@@ -14,7 +14,8 @@ const outDir = path.resolve(process.argv.find((a) => a.startsWith("--out="))?.sl
 mkdirSync(path.join(outDir, "r2"), { recursive: true });
 
 console.log(`[1/3] D1 をエクスポート → ${path.join(outDir, "d1.sql")}`);
-wrangler(["d1", "export", DB_NAME, mode, "--output", path.join(outDir, "d1.sql")]);
+// Wranglerは成功ログに一時的な署名付きダウンロードURLを含めるため表示しない。
+wrangler(["d1", "export", DB_NAME, mode, "--output", path.join(outDir, "d1.sql")], { quiet: true });
 
 console.log("[2/3] バックアップSQLから添付ファイルとアイコン画像の一覧を取得");
 const files = snapshotFiles(path.join(outDir, "d1.sql"));
