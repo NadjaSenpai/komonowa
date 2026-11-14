@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../App";
 import { api, errorMessage, formatDate } from "../api";
 import { Byline } from "../Avatar";
+import { inviteStatus, openInvites, type Invite } from "../invites";
 
 interface AdminUser {
   id: string;
@@ -11,17 +12,6 @@ interface AdminUser {
   status: "active" | "disabled";
   avatar_id: string | null;
   created_at: number;
-}
-
-interface Invite {
-  id: string;
-  email: string;
-  role: string;
-  expires_at: number;
-  used_at: number | null;
-  revoked_at: number | null;
-  created_at: number;
-  created_by_name: string;
 }
 
 interface TrashItem {
@@ -38,13 +28,8 @@ interface Tag {
 }
 
 const HOUR = 60 * 60 * 1000;
-
-function inviteStatus(i: Invite) {
-  if (i.used_at) return "登録済み";
-  if (i.revoked_at) return "取り消し";
-  if (i.expires_at < Date.now()) return "期限切れ";
-  return "未使用";
-}
+/** 送信元の実績が少ないうちは迷惑メールに入りやすいので、送ったあとに添える */
+const SPAM_HINT = "届かないときは、迷惑メールのフォルダも見てもらってください";
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -53,6 +38,8 @@ export function AdminPage() {
   const [trash, setTrash] = useState<TrashItem[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [sent, setSent] = useState("");
+  // 招待一覧は、ふだんはまだ何かする必要がある招待だけ出す
+  const [showAllInvites, setShowAllInvites] = useState(false);
   // 送信中は送るボタンを止める（二度押しで2通届き、先のリンクが無効になるのを防ぐ）
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -108,7 +95,7 @@ export function AdminPage() {
   function sendInvite(email: string, role: string, hours: number) {
     return sendMail(async () => {
       const r = await api.post<{ expiresAt: number }>("/admin/invites", { email, role, expiresInHours: hours });
-      return `${email} に招待メールを送りました（期限：${formatDate(r.expiresAt)}）`;
+      return `${email} に招待メールを送りました（期限：${formatDate(r.expiresAt)}）。${SPAM_HINT}`;
     });
   }
 
@@ -117,14 +104,9 @@ export function AdminPage() {
     if (await sendInvite(inviteEmail, inviteRole, inviteHours)) setInviteEmail("");
   }
 
-  // 一覧は新しい順なので、アドレスごとに最初に出てくるものが最新の招待
-  const latestInviteIds = new Set<string>();
-  const seenEmails = new Set<string>();
-  for (const i of invites) {
-    if (seenEmails.has(i.email)) continue;
-    seenEmails.add(i.email);
-    latestInviteIds.add(i.id);
-  }
+  const open = openInvites(invites);
+  const openIds = new Set(open.map((i) => i.id));
+  const shownInvites = showAllInvites ? invites : open;
 
   /** 同じアドレス・権限・期限の長さで送り直す。古いリンクはサーバー側で無効になる */
   async function resendInvite(i: Invite) {
@@ -134,7 +116,7 @@ export function AdminPage() {
   async function resetLink(u: AdminUser) {
     await sendMail(async () => {
       await api.post(`/admin/users/${u.id}/reset-link`);
-      return `${u.name} さんにパスワード再設定メールを送りました（24時間有効）`;
+      return `${u.name} さんにパスワード再設定メールを送りました（24時間有効）。${SPAM_HINT}`;
     });
   }
 
@@ -164,12 +146,12 @@ export function AdminPage() {
           </select>
           <button type="submit" disabled={sending}>{sending ? "送信中…" : "招待メールを送る"}</button>
         </form>
-        {invites.length === 0 && <p className="muted small">発行中の招待はありません</p>}
-        {invites.length > 0 && (
+        {shownInvites.length === 0 && <p className="muted small">返事待ちの招待はありません</p>}
+        {shownInvites.length > 0 && (
           <table>
             <thead><tr><th>メール</th><th>権限</th><th>状態</th><th>期限</th><th>発行者</th><th /></tr></thead>
             <tbody>
-              {invites.map((i) => (
+              {shownInvites.map((i) => (
                 <tr key={i.id}>
                   <td>{i.email}</td>
                   <td>{i.role === "admin" ? "管理者" : "メンバー"}</td>
@@ -178,8 +160,8 @@ export function AdminPage() {
                   <td>{i.created_by_name}</td>
                   <td>
                     <div className="actions">
-                      {/* 届かなかった・期限が切れたときは送り直す（同じアドレスの最新の招待だけ） */}
-                      {(inviteStatus(i) === "未使用" || inviteStatus(i) === "期限切れ") && latestInviteIds.has(i.id) && (
+                      {/* 届かなかった・期限が切れたときは送り直す（同じアドレスの最新の未使用・期限切れだけ） */}
+                      {openIds.has(i.id) && (
                         <button type="button" className="secondary small" disabled={sending} onClick={() => resendInvite(i)}>再送</button>
                       )}
                       {inviteStatus(i) === "未使用" && (
@@ -193,6 +175,13 @@ export function AdminPage() {
               ))}
             </tbody>
           </table>
+        )}
+        {invites.length > open.length && (
+          <p className="small">
+            <button type="button" className="link small" onClick={() => setShowAllInvites((v) => !v)}>
+              {showAllInvites ? "返事待ちの招待だけ表示" : `終わった招待も表示（${invites.length - open.length}件）`}
+            </button>
+          </p>
         )}
       </section>
 
