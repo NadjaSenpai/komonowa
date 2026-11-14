@@ -30,6 +30,22 @@ describe("applyMarkup：囲む記号", () => {
   it("コード：複数行は囲み", () => expect(run("code", "|a\nb|")).toBe("```\n|a\nb|\n```"));
 });
 
+describe("applyMarkup：複数行を囲む", () => {
+  it("太字：行ごとに囲む", () => expect(run("bold", "|a\nb|")).toBe("|**a**\n**b**|"));
+  it("太字：空行は飛ばす", () => expect(run("bold", "|a\n\nb|")).toBe("|**a**\n\n**b**|"));
+  it("太字：行末の空白は外に出す", () => expect(run("bold", "|a \nb|")).toBe("|**a** \n**b**|"));
+  it("太字：行頭の記号は外に残す", () => {
+    expect(run("bold", "|- a\n- b|")).toBe("|- **a**\n- **b**|");
+    expect(run("bold", "|## 見出し\n1. 項目\n> 引用\n- [ ] 未完了|")).toBe("|## **見出し**\n1. **項目**\n> **引用**\n- [ ] **未完了**|");
+  });
+  it("太字：行の途中から途中まで", () => expect(run("bold", "x|a\nb|y")).toBe("x|**a**\n**b**|y"));
+  it("太字：行を選んだときの末尾の改行", () => expect(run("bold", "|a\n|b")).toBe("|**a**\n|b"));
+  it("取り消し線とページも行ごと", () => {
+    expect(run("strike", "|a\nb|")).toBe("|~~a~~\n~~b~~|");
+    expect(run("page", "|a\nb|")).toBe("|[[a]]\n[[b]]|");
+  });
+});
+
 describe("applyMarkup：行に付ける記号", () => {
   it("見出し：空の本文", () => expect(run("heading", "|")).toBe("## |"));
   it("見出し：今の行", () => expect(run("heading", "一\n二|三\n四")).toBe("一\n## 二|三\n四"));

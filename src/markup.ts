@@ -32,6 +32,9 @@ const LINE_PREFIXES: Record<"heading" | "bullet" | "task" | "quote" | "numbered"
   numbered: (n) => `${n}. `,
 };
 
+/** 行頭の Markdown の記号（## 、- 、1. 、> 、- [ ] 。入れ子も含む） */
+const BLOCK_PREFIX = /^(?:\s*(?:#{1,6}\s+|>\s?|(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?))+/;
+
 /** 選択を行単位に広げる。終わりが行頭なら（行のトリプルクリックなど）その行は含めない */
 function lineRange(text: string, start: number, end: number) {
   const from = text.lastIndexOf("\n", start - 1) + 1;
@@ -62,6 +65,25 @@ export function applyMarkup(action: MarkupAction, text: string, selStart: number
       return { from, to, insert, selectFrom: cursor, selectTo: cursor };
     }
     return { from, to, insert, selectFrom: from, selectTo: selEnd + added };
+  }
+
+  // 太字などは行をまたげないので、複数行なら行ごとに囲む
+  if (selected.includes("\n") && action in WRAPS) {
+    const wrap = WRAPS[action as keyof typeof WRAPS];
+    const startsLine = selStart === 0 || text[selStart - 1] === "\n";
+    const insert = selected
+      .split("\n")
+      .map((segment, i) => {
+        if (segment.trim() === "") return segment;
+        // 行頭の見出し・リスト・引用・チェックの記号は囲みの外に残す（"**- a**" だと箇条書きが壊れる）
+        const head = i > 0 || startsLine ? (BLOCK_PREFIX.exec(segment)?.[0] ?? "") : "";
+        const rest = segment.slice(head.length);
+        const lead = rest.length - rest.trimStart().length;
+        const inner = rest.trim();
+        return head + rest.slice(0, lead) + wrap.open + inner + wrap.close + rest.slice(lead + inner.length);
+      })
+      .join("\n");
+    return { from: selStart, to: selEnd, insert, selectFrom: selStart, selectTo: selStart + insert.length };
   }
 
   // 囲む記号：前後の空白は記号の外に出す（"**太字 **" は太字にならないため）
