@@ -66,6 +66,14 @@ describe("チェックリストの付け外し", () => {
     expect(stored()).toEqual({ "a#0": false, "b#0": false });
   });
 
+  it("空行をはさんだリスト（項目が段落に包まれる）でも付け外しできる", () => {
+    const { root, boxes } = mount("- [ ] 1\n- [ ] 2\n\n- [ ] 3");
+    expect(boxes[0]!.parentElement!.tagName).toBe("P");
+    toggleTaskBox(boxes[2]!, root, "a1");
+    expect(boxes[2]!.closest("li")!.classList.contains("done")).toBe(true);
+    expect(stored()).toEqual({ "3#0": true });
+  });
+
   it("入れ子の子の文字は親の項目キーに含めない", () => {
     const { root, boxes } = mount("- [ ] 親\n  - [ ] 子");
     toggleTaskBox(boxes[0]!, root, "a1");

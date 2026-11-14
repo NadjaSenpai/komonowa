@@ -203,7 +203,9 @@ button.link:hover { background: none; text-decoration: underline; }
 .markdown blockquote { margin: 0 0 var(--space-md); padding: var(--space-sm) var(--space-md); background: var(--color-paper-3); border-radius: var(--radius-control); color: var(--color-ink-2); }
 .markdown blockquote > :last-child { margin-bottom: 0; }
 /* チェックリスト：箇条書きの点の代わりにチェックの印を出す */
-.markdown li:has(> .task-box) { list-style: none; }
+/* 項目の間に空行があると「ゆるいリスト」になり、印は <p> の中に入る。そのときも点を消し、段落の余白を詰める */
+.markdown li:has(> .task-box, > p:first-child > .task-box) { list-style: none; }
+.markdown li:has(> p:first-child > .task-box) > p { margin-block: 0; }
 .markdown .task-box { display: inline-block; inline-size: 1.4em; margin-inline-start: -1.4em; color: var(--color-ink-2); }
 /* 表示画面では付け外しできる（このブラウザにだけ保存）。付いた項目は薄く取り消し線 */
 .markdown .task-box[role="checkbox"] { cursor: pointer; user-select: none; border-radius: var(--radius-control); }
