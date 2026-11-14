@@ -5,6 +5,11 @@ import { api, errorMessage, type User } from "../api";
 
 const PASSWORD_HINT = "12文字以上";
 
+/** 送信後に画面を移る前に入力欄から離れる（iPhone でキーボード用にずれた表示を戻す） */
+function leaveForm() {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+}
+
 function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="auth">
@@ -48,6 +53,7 @@ export function LoginPage() {
     try {
       const r = await api.post<{ user: User }>("/auth/login", { email, password });
       setUser(r.user);
+      leaveForm();
       navigate(from, { replace: true });
     } catch (err) {
       setError(errorMessage(err));
@@ -99,6 +105,7 @@ export function SetupPage() {
     try {
       const r = await api.post<{ user: User }>("/auth/setup", form);
       setUser(r.user);
+      leaveForm();
       navigate("/admin");
     } catch (err) {
       setError(errorMessage(err));
@@ -145,6 +152,7 @@ export function InvitePage() {
     try {
       const r = await api.post<{ user: User }>("/auth/invite/accept", { token, name, password });
       setUser(r.user);
+      leaveForm();
       navigate("/", { replace: true, state: { welcome: true } });
     } catch (err) {
       setError(errorMessage(err));

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router";
+import { Link, Navigate, NavLink, Route, Routes, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import { Avatar } from "./Avatar";
 import { AccountPage } from "./pages/AccountPage";
@@ -50,6 +50,8 @@ export function App() {
 
   return (
     <AuthContext.Provider value={{ user, setUser, logout }}>
+      {/* 画面が変わったら上から表示する（戻るでは元の位置）。スマホでキーボードが出てずれた位置を引き継がない */}
+      <ScrollRestoration />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupPage />} />
