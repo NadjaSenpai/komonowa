@@ -266,7 +266,7 @@ export function AdminPage() {
                           if (name && name !== t.name) void run(() => api.patch(`/admin/tags/${t.id}`, { name }));
                         }}
                       >
-                        改名
+                        名前を変更
                       </button>
                       <button
                         type="button"
