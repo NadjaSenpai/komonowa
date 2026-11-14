@@ -202,6 +202,9 @@ button.link:hover { background: none; text-decoration: underline; }
 .markdown th { font-weight: 700; border-bottom-color: var(--color-ink-2); }
 .markdown blockquote { margin: 0 0 var(--space-md); padding: var(--space-sm) var(--space-md); background: var(--color-paper-3); border-radius: var(--radius-control); color: var(--color-ink-2); }
 .markdown blockquote > :last-child { margin-bottom: 0; }
+/* チェックリスト：箇条書きの点の代わりにチェックの印を出す */
+.markdown li:has(> .task-box) { list-style: none; }
+.markdown .task-box { display: inline-block; inline-size: 1.4em; margin-inline-start: -1.4em; color: var(--color-ink-2); }
 
 .attachments ul { padding-left: var(--space-lg); }
 .attachments li { display: flex; gap: var(--space-sm); align-items: baseline; flex-wrap: wrap; }

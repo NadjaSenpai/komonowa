@@ -62,3 +62,16 @@ describe("[[タイトル]]", () => {
     expect(renderMarkdown("`[[a]]`")).not.toContain("wikilink");
   });
 });
+
+describe("チェックリスト", () => {
+  it("- [ ] と - [x] をチェックの印で表示する", () => {
+    const doc = new DOMParser().parseFromString(renderMarkdown("- [ ] 未完了\n- [x] 完了"), "text/html");
+    const boxes = [...doc.querySelectorAll("li > .task-box")];
+    expect(boxes.map((b) => b.textContent)).toEqual(["☐", "☑"]);
+    expect(boxes.map((b) => b.getAttribute("aria-label"))).toEqual(["未完了", "完了"]);
+  });
+
+  it("本文に直接書いた input タグは今までどおり取り除く", () => {
+    expect(renderMarkdown('<input type="checkbox"> <input type="text" value="x">')).not.toContain("<input");
+  });
+});
