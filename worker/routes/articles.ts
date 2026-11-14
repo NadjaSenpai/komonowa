@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { fail, int, readJson, str } from "../http";
 import { requireAuth } from "../session";
-import { titleKey } from "../../shared/wikilinks";
+import { extractWikiLinks, titleKey } from "../../shared/wikilinks";
 
 export const articles = new Hono<AppEnv>();
 articles.use("*", requireAuth);
@@ -96,6 +96,11 @@ function writeStatements(
       )
       .bind(revisionId, articleId, version, input.title, input.body, JSON.stringify(input.tags), action, userId, now, articleId, revisionId),
     db.prepare(`DELETE FROM article_tags WHERE article_id = ? AND ${guard}`).bind(articleId, articleId, revisionId),
+    // 本文の [[タイトル]] を書き直す。リンクの数によらず1文で済むよう JSON 配列で渡す
+    db.prepare(`DELETE FROM article_links WHERE source_id = ? AND ${guard}`).bind(articleId, articleId, revisionId),
+    db
+      .prepare(`INSERT OR IGNORE INTO article_links (source_id, target_key) SELECT ?, value FROM json_each(?) WHERE ${guard}`)
+      .bind(articleId, JSON.stringify(extractWikiLinks(input.body).map(titleKey)), articleId, revisionId),
   ];
   for (const tag of input.tags) {
     stmts.push(
@@ -216,16 +221,37 @@ articles.post("/", async (c) => {
   return c.json({ article: await loadArticle(c.env.DB, id) }, 201);
 });
 
+// [[タイトル]] の行き先。/:id より前に登録する
+articles.get("/by-title/:title", async (c) => {
+  const row = await c.env.DB.prepare("SELECT id FROM articles WHERE title_key = ? AND deleted_at IS NULL")
+    .bind(titleKey(c.req.param("title")))
+    .first<{ id: string }>();
+  if (!row) fail(404, "記事が見つかりません");
+  return c.json({ id: row.id });
+});
+
 articles.get("/:id", async (c) => {
   const article = await loadArticle(c.env.DB, c.req.param("id"));
   if (!article) fail(404, "記事が見つかりません");
-  const { results } = await c.env.DB.prepare(
-    `SELECT f.id, f.filename, f.content_type, f.size, f.created_at, u.name AS uploaded_by_name, f.uploaded_by
-       FROM attachments f JOIN users u ON u.id = f.uploaded_by WHERE f.article_id = ? ORDER BY f.created_at`,
-  )
-    .bind(article.id)
-    .all();
-  return c.json({ article, attachments: results });
+  const [attachments, links, backlinks] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT f.id, f.filename, f.content_type, f.size, f.created_at, u.name AS uploaded_by_name, f.uploaded_by
+         FROM attachments f JOIN users u ON u.id = f.uploaded_by WHERE f.article_id = ? ORDER BY f.created_at`,
+    ).bind(article.id),
+    // 本文のリンク先と、その記事があれば ID（なければ null で「まだない記事」）
+    c.env.DB.prepare(
+      `SELECT l.target_key AS key, a.id FROM article_links l
+         LEFT JOIN articles a ON a.title_key = l.target_key AND a.deleted_at IS NULL
+        WHERE l.source_id = ?`,
+    ).bind(article.id),
+    // この記事にリンクしている記事（自分とごみ箱を除く）
+    c.env.DB.prepare(
+      `SELECT a.id, a.title, a.updated_at FROM article_links l JOIN articles a ON a.id = l.source_id
+        WHERE l.target_key = (SELECT title_key FROM articles WHERE id = ?) AND a.deleted_at IS NULL AND a.id <> ?
+        ORDER BY a.updated_at DESC, a.rowid DESC`,
+    ).bind(article.id, article.id),
+  ]);
+  return c.json({ article, attachments: attachments!.results, links: links!.results, backlinks: backlinks!.results });
 });
 
 async function update(
