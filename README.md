@@ -122,3 +122,7 @@ public/_headers    静的ファイルのセキュリティヘッダー
 .github/workflows/ CI（npm run check）と本番への自動デプロイ
 docs/              仕様・計画・運用手順
 ```
+
+## ライセンス
+
+[MIT License](LICENSE)
