@@ -107,7 +107,9 @@ export function ArticleViewPage() {
             <li key={a.id}>
               <a href={`/api/attachments/${a.id}`} target="_blank" rel="noopener">{a.filename}</a>
               <span className="muted small"> {formatSize(a.size)} · {a.uploaded_by_name}</span>
-              {(a.uploaded_by === user?.id || user?.role === "admin") && (
+              {article.body.includes(`/api/attachments/${a.id}`) ? (
+                <span className="muted small" title="本文から外すと削除できます"> · 本文で使用中</span>
+              ) : (a.uploaded_by === user?.id || user?.role === "admin") && (
                 <button type="button" className="link small danger-text" onClick={() => removeAttachment(a)}>削除</button>
               )}
             </li>

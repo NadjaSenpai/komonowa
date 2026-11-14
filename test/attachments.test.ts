@@ -100,6 +100,46 @@ describe("添付ファイル", () => {
     expect((await a.client.del(attachment.url)).status).toBe(200);
     expect((await a.client.get(attachment.url)).status).toBe(404);
   });
+
+  it("未ログインでは添付を削除できない", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin);
+    const { attachment } = await json(await upload(admin, article.id, PDF, "a.pdf"));
+    expect((await new Client().del(attachment.url)).status).toBe(401);
+    expect((await admin.get(attachment.url)).status).toBe(200);
+  });
+
+  it("本文で使われている添付は、本人も管理者も削除できない", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const article = await createArticle(client);
+    const { attachment } = await json(await upload(client, article.id, PNG, "図.png"));
+    const put = (body: string, baseVersion: number) =>
+      client.put(`/api/articles/${article.id}`, { title: "図入り", body, tags: [], baseVersion });
+    expect((await put(`![図](${attachment.url})`, 1)).status).toBe(200);
+
+    const blocked = await client.del(attachment.url);
+    expect(blocked.status).toBe(409);
+    expect((await json(blocked)).error).toContain("本文");
+    expect((await admin.del(attachment.url)).status).toBe(409);
+    expect((await client.get(attachment.url)).status).toBe(200);
+
+    expect((await put("図は外した", 2)).status).toBe(200);
+    expect((await client.del(attachment.url)).status).toBe(200);
+  });
+
+  it("ほかの記事やごみ箱の記事の本文で使われていても削除できない", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const article = await createArticle(client);
+    const { attachment } = await json(await upload(client, article.id, PDF, "a.pdf"));
+    const other = await createArticle(client, { body: `[資料](${attachment.url})` });
+    expect((await client.del(attachment.url)).status).toBe(409);
+    expect((await client.del(`/api/articles/${other.id}`)).status).toBe(200);
+    const trashed = await client.del(attachment.url);
+    expect(trashed.status).toBe(409);
+    expect((await json(trashed)).error).toContain("ごみ箱の記事");
+  });
 });
 
 const ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 20, 0, 0, 0, 0, 0]);

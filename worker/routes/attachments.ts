@@ -208,6 +208,16 @@ attachments.delete("/attachments/:id", requireAuth, async (c) => {
   if (!row || row.deleted_at !== null) fail(404, "ファイルが見つかりません");
   if (row.article_id === null && row.uploaded_by !== c.var.user.id) fail(404, "ファイルが見つかりません");
   if (row.uploaded_by !== c.var.user.id && c.var.user.role !== "admin") fail(403, "添付した本人か管理者のみ削除できます");
+  // 消すと本文の画像やリンクが切れるので、どこかの記事（ごみ箱も含む）の本文で使われていたら断る。古い版は見ない
+  const usedIn = await c.env.DB.prepare(
+    "SELECT title, deleted_at FROM articles WHERE instr(body, ?) > 0 ORDER BY deleted_at IS NOT NULL LIMIT 1",
+  )
+    .bind(`/api/attachments/${id}`)
+    .first<{ title: string; deleted_at: number | null }>();
+  if (usedIn) {
+    const where = usedIn.deleted_at === null ? `「${usedIn.title}」` : "ごみ箱の記事";
+    fail(409, `${where}の本文で使われています。本文から外してから削除してください`);
+  }
   await c.env.DB.prepare("DELETE FROM attachments WHERE id = ?").bind(id).run();
   await c.env.FILES.delete(row.r2_key);
   return c.json({ ok: true });
