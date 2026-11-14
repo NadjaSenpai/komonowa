@@ -232,9 +232,19 @@ export function ArticleViewPage() {
             </li>
           ))}
         </ul>
+        {/* ブラウザ標準のファイル選択欄は狭い欄で「選択さ…いません」と切れるので隠し、欄全体を押して選ぶ形にする */}
         <label className="upload">
-          {uploading ? "アップロード中…" : "ファイルを添付（画像・PDF・Office 文書・テキスト・ZIP、10MBまで）"}
-          <input ref={fileRef} type="file" multiple accept={ACCEPT} disabled={uploading} onChange={(e) => upload(e.target.files)} />
+          <span className="upload-title">{uploading ? "アップロード中…" : "ファイルを添付"}</span>
+          <span className="upload-hint">画像・PDF・Office 文書・テキスト・ZIP（10MBまで）</span>
+          <input
+            ref={fileRef}
+            className="visually-hidden"
+            type="file"
+            multiple
+            accept={ACCEPT}
+            disabled={uploading}
+            onChange={(e) => upload(e.target.files)}
+          />
         </label>
         {uploadError && <p className="error" role="alert">{uploadError}</p>}
       </section>
