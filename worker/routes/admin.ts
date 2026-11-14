@@ -3,6 +3,7 @@ import { randomToken, sha256 } from "../crypto";
 import type { AppEnv } from "../env";
 import { email, fail, readJson, str } from "../http";
 import { requireAdmin, requireAuth, revokeUserSessions } from "../session";
+import { formatJst, sendOrFail } from "../mail";
 import { assertTitleFree } from "./articles";
 
 const HOUR = 60 * 60 * 1000;
@@ -98,6 +99,21 @@ admin.post("/invites", async (c) => {
   const token = randomToken();
   const now = Date.now();
   const expires = now + hours * HOUR;
+  // 先に送り、送れたときだけ記録する（失敗しても前の招待はそのまま使える）
+  await sendOrFail(c.env, {
+    to: addr,
+    subject: "komonowa に招待されました",
+    text: [
+      `${c.var.user.name} さんから、チームWiki「komonowa」に${role === "admin" ? "管理者" : "メンバー"}として招待されました。`,
+      "",
+      "次のリンクを開き、表示名とパスワードを決めると登録できます。",
+      `${new URL(c.req.url).origin}/invite#${token}`,
+      "",
+      `有効期限：${formatJst(expires)}（一度だけ使えます）`,
+      "",
+      "心当たりがなければ、このメールは無視してください。",
+    ].join("\n"),
+  });
   await c.env.DB.batch([
     // 同じアドレスへの未使用の招待は置き換える
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND email = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, addr),
@@ -105,7 +121,7 @@ admin.post("/invites", async (c) => {
       "INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES (?, 'invite', ?, ?, ?, ?, ?)",
     ).bind(await sha256(token), addr, role, c.var.user.id, expires, now),
   ]);
-  return c.json({ token, expiresAt: expires }, 201);
+  return c.json({ expiresAt: expires }, 201);
 });
 
 admin.delete("/invites/:id", async (c) => {

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { sha256 } from "../worker/crypto";
-import { ADMIN, Client, SETUP_TOKEN, adminClient, json, memberClient } from "./helpers";
+import { ADMIN, Client, SETUP_TOKEN, adminClient, json, lastMail, mailbox, memberClient, tokenFrom } from "./helpers";
 
 describe("初期管理者の作成", () => {
   it("トークンが違えば拒否し、作成後は二度と使えない", async () => {
@@ -76,7 +76,14 @@ describe("招待", () => {
     const admin = await adminClient();
     const res = await admin.post("/api/admin/invites", { email: "New@Example.com", role: "member" });
     expect(res.status).toBe(201);
-    const { token } = await json(res);
+    // リンクは応答に含めず、本人にメールで送る
+    expect(await json(res)).not.toHaveProperty("token");
+    const mail = lastMail();
+    expect(mail.to).toBe("new@example.com");
+    expect(mail.subject).toBe("komonowa に招待されました");
+    expect(mail.text).toContain("https://wiki.example.com/invite#");
+    expect(mail.text).toContain(ADMIN.name);
+    const token = tokenFrom(mail);
 
     const guest = new Client();
     expect(await json(await guest.post("/api/auth/invite/check", { token }))).toEqual({ email: "new@example.com" });
@@ -89,18 +96,36 @@ describe("招待", () => {
     expect((await admin.post("/api/admin/invites", { email: "new@example.com" })).status).toBe(409);
 
     // 期限切れ
-    const expired = await json(await admin.post("/api/admin/invites", { email: "late@example.com" }));
-    await env.DB.prepare("UPDATE auth_tokens SET expires_at = ? WHERE token_hash = ?").bind(Date.now() - 1, await sha256(expired.token)).run();
-    expect((await new Client().post("/api/auth/invite/accept", { token: expired.token, name: "遅刻", password: "late-member-pass" })).status).toBe(410);
+    await admin.post("/api/admin/invites", { email: "late@example.com" });
+    const expired = tokenFrom(lastMail());
+    await env.DB.prepare("UPDATE auth_tokens SET expires_at = ? WHERE token_hash = ?").bind(Date.now() - 1, await sha256(expired)).run();
+    expect((await new Client().post("/api/auth/invite/accept", { token: expired, name: "遅刻", password: "late-member-pass" })).status).toBe(410);
 
     // 取り消し
-    const revoked = await json(await admin.post("/api/admin/invites", { email: "revoked@example.com" }));
-    expect((await admin.del(`/api/admin/invites/${await sha256(revoked.token)}`)).status).toBe(200);
-    expect((await new Client().post("/api/auth/invite/accept", { token: revoked.token, name: "取消", password: "revoked-pass-123" })).status).toBe(410);
+    await admin.post("/api/admin/invites", { email: "revoked@example.com" });
+    const revoked = tokenFrom(lastMail());
+    expect((await admin.del(`/api/admin/invites/${await sha256(revoked)}`)).status).toBe(200);
+    expect((await new Client().post("/api/auth/invite/accept", { token: revoked, name: "取消", password: "revoked-pass-123" })).status).toBe(410);
 
     // DB にはトークンの平文を保存しない
     const raw = await env.DB.prepare("SELECT COUNT(*) AS n FROM auth_tokens WHERE token_hash = ?").bind(token).first<number>("n");
     expect(raw).toBe(0);
+  });
+
+  it("メールを送れなければ招待は記録されず、前の招待もそのまま使える", async () => {
+    const admin = await adminClient();
+    await admin.post("/api/admin/invites", { email: "retry@example.com", role: "member" });
+    const first = tokenFrom(lastMail());
+
+    mailbox.failNext = true;
+    const res = await admin.post("/api/admin/invites", { email: "retry@example.com", role: "admin" });
+    expect(res.status).toBe(502);
+    expect((await json(res)).error).toBe("メールを送れませんでした。アドレスを確かめて、もう一度試してください");
+
+    const invites = (await json(await admin.get("/api/admin/invites"))).invites;
+    expect(invites).toHaveLength(1);
+    expect(invites[0].role).toBe("member");
+    expect((await new Client().post("/api/auth/invite/check", { token: first })).status).toBe(200);
   });
 
   it("メンバーは招待できない", async () => {

@@ -1,4 +1,22 @@
 import { SELF } from "cloudflare:test";
+import type { Mail } from "../worker/mail";
+
+/** テスト中に送ったメール（test/apply-migrations.ts で mailer.send を差し替え、本物も模擬も送らない） */
+export const mailbox = { sent: [] as Mail[], failNext: false };
+
+/** 最後に送ったメール */
+export function lastMail(): Mail {
+  const mail = mailbox.sent.at(-1);
+  if (!mail) throw new Error("メールが送られていません");
+  return mail;
+}
+
+/** メール本文のリンク（.../invite#トークン など）からトークンを取り出す */
+export function tokenFrom(mail: Mail): string {
+  const m = /#([A-Za-z0-9_-]+)/.exec(mail.text);
+  if (!m) throw new Error("本文にリンクがありません");
+  return m[1]!;
+}
 
 export const ORIGIN = "https://wiki.example.com";
 export const SETUP_TOKEN = "test-setup-token-0123456789abcdefghij";
@@ -63,9 +81,10 @@ let counter = 0;
 export async function memberClient(admin: Client, role: "member" | "admin" = "member") {
   counter += 1;
   const email = `user${counter}-${crypto.randomUUID().slice(0, 8)}@example.com`;
-  const invite = await json(await admin.post("/api/admin/invites", { email, role }));
+  const sent = await admin.post("/api/admin/invites", { email, role });
+  if (sent.status !== 201) throw new Error(`invite failed: ${sent.status} ${await sent.text()}`);
   const c = new Client();
-  const res = await c.post("/api/auth/invite/accept", { token: invite.token, name: `メンバー${counter}`, password: "member-password-123" });
+  const res = await c.post("/api/auth/invite/accept", { token: tokenFrom(lastMail()), name: `メンバー${counter}`, password: "member-password-123" });
   if (res.status !== 201) throw new Error(`accept failed: ${res.status} ${await res.text()}`);
   const { user } = await json(res);
   return { client: c, user, email, password: "member-password-123" };
