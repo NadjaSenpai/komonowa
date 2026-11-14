@@ -3,8 +3,10 @@ import { randomToken, sha256 } from "../crypto";
 import type { AppEnv } from "../env";
 import { email, fail, readJson, str } from "../http";
 import { requireAdmin, requireAuth, revokeUserSessions } from "../session";
+import { assertTitleFree } from "./articles";
 
 const HOUR = 60 * 60 * 1000;
+const RESTORE_CLASH = "同じタイトルの記事がすでにあります。どちらかのタイトルを変えてから戻してください";
 export const admin = new Hono<AppEnv>();
 admin.use("*", requireAuth, requireAdmin);
 
@@ -128,11 +130,22 @@ admin.get("/trash", async (c) => {
 });
 
 admin.post("/trash/:id/restore", async (c) => {
-  const res = await c.env.DB.prepare(
-    "UPDATE articles SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL",
-  )
-    .bind(c.req.param("id"))
-    .run();
+  const id = c.req.param("id");
+  const trashed = await c.env.DB.prepare("SELECT title_key FROM articles WHERE id = ? AND deleted_at IS NOT NULL")
+    .bind(id)
+    .first<{ title_key: string }>();
+  if (!trashed) fail(404, "ごみ箱に記事が見つかりません");
+  // ごみ箱の記事はタイトルを確保していないので、その間に同じタイトルの記事ができていることがある
+  await assertTitleFree(c.env.DB, trashed.title_key, id, RESTORE_CLASH);
+  let res: D1Result;
+  try {
+    res = await c.env.DB.prepare("UPDATE articles SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL")
+      .bind(id)
+      .run();
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("UNIQUE constraint failed")) fail(409, RESTORE_CLASH);
+    throw err;
+  }
   if (res.meta.changes === 0) fail(404, "ごみ箱に記事が見つかりません");
   return c.json({ ok: true });
 });

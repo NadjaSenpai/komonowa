@@ -72,7 +72,7 @@ export async function memberClient(admin: Client, role: "member" | "admin" = "me
 }
 
 export async function createArticle(c: Client, data: { title?: string; body?: string; tags?: string[] } = {}) {
-  const res = await c.post("/api/articles", { title: "記事", body: "本文", tags: [], ...data });
+  const res = await c.post("/api/articles", { title: `記事-${crypto.randomUUID().slice(0, 8)}`, body: "本文", tags: [], ...data });
   if (res.status !== 201) throw new Error(`create failed: ${res.status} ${await res.text()}`);
   return (await json(res)).article;
 }

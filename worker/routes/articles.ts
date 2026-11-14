@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { fail, int, readJson, str } from "../http";
 import { requireAuth } from "../session";
+import { titleKey } from "../../shared/wikilinks";
 
 export const articles = new Hono<AppEnv>();
 articles.use("*", requireAuth);
@@ -42,6 +43,29 @@ function readAttachmentIds(value: unknown): string[] {
     fail(400, "添付の指定が正しくありません");
   }
   return [...new Set(value as string[])];
+}
+
+const DUPLICATE_TITLE = "同じタイトルの記事がすでにあります";
+
+/** ごみ箱にない、ほかの記事が同じタイトルキーを使っていれば 409 */
+export async function assertTitleFree(db: D1Database, key: string, exceptId: string, message = DUPLICATE_TITLE) {
+  const clash = await db
+    .prepare("SELECT 1 FROM articles WHERE title_key = ? AND deleted_at IS NULL AND id <> ?")
+    .bind(key, exceptId)
+    .first();
+  if (clash) fail(409, message);
+}
+
+/** 事前の確認と書き込みの間に割り込まれ、一意インデックスに弾かれたときも同じ 409 にする */
+async function batchGuardingTitle(db: D1Database, stmts: D1PreparedStatement[]) {
+  try {
+    return await db.batch(stmts);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("UNIQUE constraint failed") && err.message.includes("title_key")) {
+      fail(409, DUPLICATE_TITLE);
+    }
+    throw err;
+  }
 }
 
 function escapeLike(term: string) {
@@ -172,11 +196,13 @@ articles.post("/", async (c) => {
   const revisionId = crypto.randomUUID();
   const now = Date.now();
   const userId = c.var.user.id;
-  await c.env.DB.batch([
+  const key = titleKey(input.title);
+  await assertTitleFree(c.env.DB, key, id);
+  await batchGuardingTitle(c.env.DB, [
     c.env.DB.prepare(
-      `INSERT INTO articles (id, title, body, version, revision_id, created_by, updated_by, created_at, updated_at)
-       VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)`,
-    ).bind(id, input.title, input.body, revisionId, userId, userId, now, now),
+      `INSERT INTO articles (id, title, title_key, body, version, revision_id, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
+    ).bind(id, input.title, key, input.body, revisionId, userId, userId, now, now),
     ...writeStatements(c.env.DB, id, revisionId, 1, input, "create", userId, now),
     ...(attachmentIds.length > 0
       ? [
@@ -212,11 +238,13 @@ async function update(
   const revisionId = crypto.randomUUID();
   const now = Date.now();
   const userId = c.var.user.id;
-  const results = await c.env.DB.batch([
+  const key = titleKey(input.title);
+  await assertTitleFree(c.env.DB, key, id);
+  const results = await batchGuardingTitle(c.env.DB, [
     c.env.DB.prepare(
-      `UPDATE articles SET title = ?, body = ?, version = version + 1, revision_id = ?, updated_by = ?, updated_at = ?
+      `UPDATE articles SET title = ?, title_key = ?, body = ?, version = version + 1, revision_id = ?, updated_by = ?, updated_at = ?
         WHERE id = ? AND version = ? AND deleted_at IS NULL`,
-    ).bind(input.title, input.body, revisionId, userId, now, id, baseVersion),
+    ).bind(input.title, key, input.body, revisionId, userId, now, id, baseVersion),
     ...writeStatements(c.env.DB, id, revisionId, baseVersion + 1, input, action, userId, now),
   ]);
   if (!results[0]?.meta.changes) {

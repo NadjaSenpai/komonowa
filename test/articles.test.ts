@@ -152,3 +152,51 @@ describe("削除と復元", () => {
     expect((await json(await admin.get(`/api/articles/${article.id}/revisions`))).revisions).toHaveLength(1);
   });
 });
+
+describe("タイトルの重複", () => {
+  const SAME = "同じタイトルの記事がすでにあります";
+
+  it("正規化して同じになるタイトルは作れない", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    await createArticle(client, { title: "Docker 入門" });
+    const res = await client.post("/api/articles", { title: "ｄｏｃｋｅｒ　入門", body: "", tags: [] });
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toBe(SAME);
+  });
+
+  it("編集でほかの記事と同じタイトルにはできないが、自分の大文字小文字は変えられる", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const a = await createArticle(client, { title: "docker" });
+    const b = await createArticle(client, { title: "メモ" });
+    const clash = await client.put(`/api/articles/${b.id}`, { title: "DOCKER", body: "", tags: [], baseVersion: 1 });
+    expect(clash.status).toBe(409);
+    expect((await json(clash)).error).toBe(SAME);
+    expect((await client.put(`/api/articles/${a.id}`, { title: "Docker", body: "", tags: [], baseVersion: 1 })).status).toBe(200);
+  });
+
+  it("版の復元でほかの記事とぶつかると 409", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const a = await createArticle(client, { title: "旧名" });
+    expect((await client.put(`/api/articles/${a.id}`, { title: "新名", body: "", tags: [], baseVersion: 1 })).status).toBe(200);
+    await createArticle(client, { title: "旧名" });
+    const res = await client.post(`/api/articles/${a.id}/revisions/1/restore`, { baseVersion: 2 });
+    expect(res.status).toBe(409);
+    expect((await json(res)).error).toBe(SAME);
+  });
+
+  it("ごみ箱の記事と同じタイトルは作れ、ごみ箱から戻すときにぶつかれば 409", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const a = await createArticle(client, { title: "共有" });
+    expect((await client.del(`/api/articles/${a.id}`)).status).toBe(200);
+    const b = await createArticle(client, { title: "共有" });
+    const clash = await admin.post(`/api/admin/trash/${a.id}/restore`);
+    expect(clash.status).toBe(409);
+    expect((await json(clash)).error).toBe("同じタイトルの記事がすでにあります。どちらかのタイトルを変えてから戻してください");
+    expect((await client.put(`/api/articles/${b.id}`, { title: "共有2", body: "", tags: [], baseVersion: 1 })).status).toBe(200);
+    expect((await admin.post(`/api/admin/trash/${a.id}/restore`)).status).toBe(200);
+  });
+});
