@@ -54,6 +54,12 @@ admin.patch("/users/:id", async (c) => {
     .bind(role, status, Date.now(), id)
     .run();
   if (res.meta.changes === 0) fail(409, "有効な管理者が1人以上必要です");
+  // 招待できなくなった人（無効化・降格）が送った、まだ使われていない招待は取り消す（自分宛ての管理者招待で戻ってこられないように）
+  if (role !== "admin" || status !== "active") {
+    await c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND created_by = ? AND used_at IS NULL AND revoked_at IS NULL")
+      .bind(Date.now(), id)
+      .run();
+  }
   if (status === "disabled") {
     await revokeUserSessions(c.env.DB, id);
     await c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL")
