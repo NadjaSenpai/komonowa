@@ -117,7 +117,7 @@ export function emailChangeMail(p: { to: string; url: string; expiresAt: number 
   const title = "「komonowa」メールアドレスの確認";
   return build(p.to, title, {
     title,
-    lead: ["「komonowa」のメールアドレスを、このアドレスに変更する申し込みがありました。", "リンクを開くと変更されます。"],
+    lead: ["「komonowa」のメールアドレスを、このアドレスに変更する申し込みがありました。", "リンクを開いて「変更を確定する」を押すと変更されます。"],
     action: { button: "メールアドレスを確認する", url: p.url, expiresAt: p.expiresAt },
     note: "心当たりがなければ、このメールは無視してください。メールアドレスは変更されません。",
   });

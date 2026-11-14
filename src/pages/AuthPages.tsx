@@ -207,3 +207,47 @@ export function ResetPage() {
     </AuthCard>
   );
 }
+
+/**
+ * メールアドレス変更の確定（/email#トークン）。ログインしていなくても使える。
+ * メールソフトのリンク検査が先に開いても確定しないよう、開いただけでは送らずボタンで確定する
+ */
+export function EmailConfirmPage() {
+  const token = useFragmentToken();
+  const { user, setUser } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const r = await api.post<{ email: string }>("/auth/email/confirm", { token });
+      setDone(r.email);
+      // ログイン中なら画面の利用者情報も新しいアドレスにする
+      if (user) setUser({ ...user, email: r.email });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AuthCard title="メールアドレスの変更">
+      {done ? (
+        <p>
+          メールアドレスを {done} に変更しました。{user ? <Link to="/account">アカウントに戻る</Link> : <Link to="/login">ログイン</Link>}
+        </p>
+      ) : (
+        <form onSubmit={submit} className="stack">
+          <p>ボタンを押すと、このメールアドレスに変更します。</p>
+          {error && <p className="error" role="alert">{error}</p>}
+          <button type="submit" disabled={busy || !token}>{busy ? "変更中…" : "変更を確定する"}</button>
+        </form>
+      )}
+    </AuthCard>
+  );
+}

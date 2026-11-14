@@ -135,6 +135,53 @@ function PasswordSection() {
   );
 }
 
+/** 新しいアドレスに確認メールを送り、リンクを開いたら切り替わる（/email） */
+function EmailSection() {
+  const { user } = useAuth();
+  const [email, setEmail] = useState("");
+  const [currentPassword, setCurrent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setMessage("");
+    setError("");
+    setBusy(true);
+    try {
+      await api.post("/auth/email", { email, currentPassword });
+      setMessage(`${email} に確認メールを送りました。メールのリンクを開いて「変更を確定する」を押すと変更されます（24時間有効）。届かないときは迷惑メールのフォルダも見てください。`);
+      setEmail("");
+      setCurrent("");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2>メールアドレスの変更</h2>
+      <p className="muted small">今のアドレス：{user?.email}</p>
+      <form onSubmit={submit} className="stack">
+        <label>
+          新しいメールアドレス
+          <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label>
+          現在のパスワード
+          <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
+        </label>
+        {message && <p className="notice" role="status">{message}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
+        <button type="submit" className="secondary" disabled={busy}>{busy ? "送信中…" : "確認メールを送る"}</button>
+      </form>
+    </section>
+  );
+}
+
 export function AccountPage() {
   const { user } = useAuth();
   return (
@@ -144,6 +191,7 @@ export function AccountPage() {
         {user?.email}（{user?.role === "admin" ? "管理者" : "メンバー"}）
       </p>
       <ProfileSection />
+      <EmailSection />
       <PasswordSection />
     </div>
   );

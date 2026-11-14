@@ -8,7 +8,7 @@ import { ArticleEditPage } from "./pages/ArticleEditPage";
 import { ArticleListPage } from "./pages/ArticleListPage";
 import { ArticleViewPage } from "./pages/ArticleViewPage";
 import { HistoryPage } from "./pages/HistoryPage";
-import { InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
+import { EmailConfirmPage, InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
 import { WikiLinkPage } from "./pages/WikiLinkPage";
 
 interface AuthState {
@@ -54,6 +54,7 @@ export function App() {
         <Route path="/setup" element={<SetupPage />} />
         <Route path="/invite" element={<InvitePage />} />
         <Route path="/reset" element={<ResetPage />} />
+        <Route path="/email" element={<EmailConfirmPage />} />
         <Route path="/" element={<Protected><ArticleListPage /></Protected>} />
         <Route path="/articles/new" element={<Protected><ArticleEditPage /></Protected>} />
         <Route path="/articles/:id" element={<Protected><ArticleViewPage /></Protected>} />
