@@ -23,7 +23,7 @@ const files = JSON.parse(out)[0].results;
 
 console.log(`[3/3] R2 から ${files.length} 件をダウンロード`);
 for (const [i, f] of files.entries()) {
-  if (!/^(attachments|avatars)\/[0-9a-f-]+\/[0-9a-f-]+$/.test(f.r2_key)) throw new Error(`想定外のキー: ${f.r2_key}`);
+  if (!/^(attachments\/([0-9a-f-]+\/)?|avatars\/[0-9a-f-]+\/)[0-9a-f-]+$/.test(f.r2_key)) throw new Error(`想定外のキー: ${f.r2_key}`);
   const dest = path.join(outDir, "r2", ...f.r2_key.split("/"));
   mkdirSync(path.dirname(dest), { recursive: true });
   wrangler(["r2", "object", "get", `${BUCKET}/${f.r2_key}`, mode, "--file", dest], { quiet: true });

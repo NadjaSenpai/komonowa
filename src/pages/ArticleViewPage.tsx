@@ -4,15 +4,8 @@ import { useAuth } from "../App";
 import { api, errorMessage, formatDate, formatSize, type Article, type Attachment } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
+import { ACCEPT, attachmentMarkdown, uploadAttachment } from "../upload";
 
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-export const ACCEPT = ".png,.jpg,.jpeg,.gif,.webp,.pdf,.docx,.xlsx,.pptx,.odt,.ods,.odp,.doc,.xls,.ppt,.txt,.md,.csv";
-
-export function attachmentMarkdown(a: { id: string; filename: string; content_type: string }) {
-  const url = `/api/attachments/${a.id}`;
-  const label = a.filename.replace(/[[\]]/g, "");
-  return a.content_type.startsWith("image/") ? `![${label}](${url})` : `[${label}](${url})`;
-}
 
 export function ArticleViewPage() {
   const { id = "" } = useParams();
@@ -57,10 +50,7 @@ export function ArticleViewPage() {
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
-        if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name}: ファイルは10MBまでです`);
-        const form = new FormData();
-        form.append("file", file);
-        await api.post(`/articles/${id}/attachments`, form);
+        await uploadAttachment(file, id);
       }
       load();
     } catch (err) {
@@ -127,7 +117,7 @@ export function ArticleViewPage() {
           ))}
         </ul>
         <label className="upload">
-          {uploading ? "アップロード中…" : "ファイルを添付（画像・PDF・Office 文書・テキスト、10MBまで）"}
+          {uploading ? "アップロード中…" : "ファイルを添付（画像・PDF・Office 文書・テキスト・ZIP、10MBまで）"}
           <input ref={fileRef} type="file" multiple accept={ACCEPT} disabled={uploading} onChange={(e) => upload(e.target.files)} />
         </label>
         {uploadError && <p className="error" role="alert">{uploadError}</p>}

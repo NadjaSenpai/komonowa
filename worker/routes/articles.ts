@@ -33,6 +33,17 @@ function readArticleInput(body: Record<string, unknown>) {
   };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** 新規作成時にひもづける下書き添付の ID（本人がアップロードした、まだ記事のないものだけが対象） */
+function readAttachmentIds(value: unknown): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 50 || !value.every((v) => typeof v === "string" && UUID_RE.test(v))) {
+    fail(400, "添付の指定が正しくありません");
+  }
+  return [...new Set(value as string[])];
+}
+
 function escapeLike(term: string) {
   return term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
@@ -154,7 +165,9 @@ articles.get("/tags", async (c) => {
 });
 
 articles.post("/", async (c) => {
-  const input = readArticleInput(await readJson(c));
+  const body = await readJson(c);
+  const input = readArticleInput(body);
+  const attachmentIds = readAttachmentIds(body.attachmentIds);
   const id = crypto.randomUUID();
   const revisionId = crypto.randomUUID();
   const now = Date.now();
@@ -165,6 +178,14 @@ articles.post("/", async (c) => {
        VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)`,
     ).bind(id, input.title, input.body, revisionId, userId, userId, now, now),
     ...writeStatements(c.env.DB, id, revisionId, 1, input, "create", userId, now),
+    ...(attachmentIds.length > 0
+      ? [
+          c.env.DB.prepare(
+            `UPDATE attachments SET article_id = ?
+              WHERE article_id IS NULL AND uploaded_by = ? AND id IN (${attachmentIds.map(() => "?").join(", ")})`,
+          ).bind(id, userId, ...attachmentIds),
+        ]
+      : []),
   ]);
   return c.json({ article: await loadArticle(c.env.DB, id) }, 201);
 });
