@@ -20,6 +20,7 @@ interface Invite {
   expires_at: number;
   used_at: number | null;
   revoked_at: number | null;
+  created_at: number;
   created_by_name: string;
 }
 
@@ -36,19 +37,7 @@ interface Tag {
   count: number;
 }
 
-/** 発行したリンクは一度しか表示しない（サーバーにはハッシュしか残らない） */
-function IssuedLink({ label, url, onClose }: { label: string; url: string; onClose: () => void }) {
-  return (
-    <div className="notice" role="status">
-      <p>{label}（この画面を閉じると再表示できません。安全な方法で本人に渡してください）</p>
-      <div className="copy-row">
-        <input readOnly value={url} onFocus={(e) => e.target.select()} aria-label={label} />
-        <button type="button" onClick={() => navigator.clipboard?.writeText(url)}>コピー</button>
-        <button type="button" className="secondary" onClick={onClose}>閉じる</button>
-      </div>
-    </div>
-  );
-}
+const HOUR = 60 * 60 * 1000;
 
 function inviteStatus(i: Invite) {
   if (i.used_at) return "登録済み";
@@ -63,7 +52,7 @@ export function AdminPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [trash, setTrash] = useState<TrashItem[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [issued, setIssued] = useState<{ label: string; url: string } | null>(null);
+  const [sent, setSent] = useState("");
   const [error, setError] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"member" | "admin">("member");
@@ -90,29 +79,52 @@ export function AdminPage() {
     void load();
   }, [load]);
 
-  async function run(action: () => Promise<unknown>) {
+  /** 成功したら true（一覧は読み直す）、失敗したらエラーを出して false */
+  async function run(action: () => Promise<unknown>): Promise<boolean> {
     setError("");
     try {
       await action();
       await load();
+      return true;
     } catch (err) {
       setError(errorMessage(err));
+      return false;
     }
+  }
+
+  // リンクはサーバーが本人にメールで送る（画面には出さない）
+  function sendInvite(email: string, role: string, hours: number) {
+    setSent("");
+    return run(async () => {
+      const r = await api.post<{ expiresAt: number }>("/admin/invites", { email, role, expiresInHours: hours });
+      setSent(`${email} に招待メールを送りました（期限：${formatDate(r.expiresAt)}）`);
+    });
   }
 
   async function invite(e: FormEvent) {
     e.preventDefault();
-    await run(async () => {
-      const r = await api.post<{ token: string }>("/admin/invites", { email: inviteEmail, role: inviteRole, expiresInHours: inviteHours });
-      setIssued({ label: `${inviteEmail} への招待リンク`, url: `${location.origin}/invite#${r.token}` });
-      setInviteEmail("");
-    });
+    if (await sendInvite(inviteEmail, inviteRole, inviteHours)) setInviteEmail("");
+  }
+
+  // 一覧は新しい順なので、アドレスごとに最初に出てくるものが最新の招待
+  const latestInviteIds = new Set<string>();
+  const seenEmails = new Set<string>();
+  for (const i of invites) {
+    if (seenEmails.has(i.email)) continue;
+    seenEmails.add(i.email);
+    latestInviteIds.add(i.id);
+  }
+
+  /** 同じアドレス・権限・期限の長さで送り直す。古いリンクはサーバー側で無効になる */
+  async function resendInvite(i: Invite) {
+    await sendInvite(i.email, i.role, Math.max(1, Math.round((i.expires_at - i.created_at) / HOUR)));
   }
 
   async function resetLink(u: AdminUser) {
+    setSent("");
     await run(async () => {
-      const r = await api.post<{ token: string }>(`/admin/users/${u.id}/reset-link`);
-      setIssued({ label: `${u.name} さんのパスワード再設定リンク（24時間有効）`, url: `${location.origin}/reset#${r.token}` });
+      await api.post(`/admin/users/${u.id}/reset-link`);
+      setSent(`${u.name} さんにパスワード再設定メールを送りました（24時間有効）`);
     });
   }
 
@@ -120,7 +132,12 @@ export function AdminPage() {
     <div className="admin">
       <h1>管理</h1>
       {error && <p className="error" role="alert">{error}</p>}
-      {issued && <IssuedLink {...issued} onClose={() => setIssued(null)} />}
+      {sent && (
+        <p className="notice" role="status">
+          {sent}{" "}
+          <button type="button" className="link small" onClick={() => setSent("")}>閉じる</button>
+        </p>
+      )}
 
       <section>
         <h2>メンバーを招待</h2>
@@ -135,7 +152,7 @@ export function AdminPage() {
             <option value={72}>3日</option>
             <option value={168}>7日</option>
           </select>
-          <button type="submit">招待リンクを発行</button>
+          <button type="submit">招待メールを送る</button>
         </form>
         {invites.length === 0 && <p className="muted small">発行中の招待はありません</p>}
         {invites.length > 0 && (
@@ -150,11 +167,17 @@ export function AdminPage() {
                   <td>{formatDate(i.expires_at)}</td>
                   <td>{i.created_by_name}</td>
                   <td>
-                    {inviteStatus(i) === "未使用" && (
-                      <button type="button" className="secondary small" onClick={() => run(() => api.del(`/admin/invites/${encodeURIComponent(i.id)}`))}>
-                        取り消し
-                      </button>
-                    )}
+                    <div className="actions">
+                      {/* 届かなかった・期限が切れたときは送り直す（同じアドレスの最新の招待だけ） */}
+                      {(inviteStatus(i) === "未使用" || inviteStatus(i) === "期限切れ") && latestInviteIds.has(i.id) && (
+                        <button type="button" className="secondary small" onClick={() => resendInvite(i)}>再送</button>
+                      )}
+                      {inviteStatus(i) === "未使用" && (
+                        <button type="button" className="secondary small" onClick={() => run(() => api.del(`/admin/invites/${encodeURIComponent(i.id)}`))}>
+                          取り消し
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -194,7 +217,7 @@ export function AdminPage() {
                   <div className="actions">
                     {u.id !== user?.id && u.status === "active" && (
                       <>
-                        <button type="button" className="secondary small" onClick={() => resetLink(u)}>再設定リンク</button>
+                        <button type="button" className="secondary small" onClick={() => resetLink(u)}>再設定メールを送る</button>
                         <button
                           type="button"
                           className="danger small"
