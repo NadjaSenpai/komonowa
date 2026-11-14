@@ -232,7 +232,7 @@ auth.post("/withdraw", requireAuth, async (c) => {
     .bind(c.var.user.id)
     .first<{ password_hash: string; is_owner: number }>();
   await verifyCurrentPassword(c.env.DB, c.var.user.id, current, row?.password_hash);
-  if (row?.is_owner) fail(409, "所有者は退会できません。先にほかの管理者に所有者を譲ってください");
+  if (row?.is_owner) fail(409, "所有者は退会できません。先にほかの管理者に所有者を譲ってください（手順は運用手順書の「所有者」）");
   await removeAccount(c.env, c.var.user.id, { block: false });
   clearSessionCookie(c);
   return c.json({ ok: true });
