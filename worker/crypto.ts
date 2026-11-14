@@ -70,3 +70,12 @@ export async function safeStringEqual(a: string, b: string): Promise<boolean> {
   ]);
   return timingSafeEqual(new Uint8Array(ha), new Uint8Array(hb));
 }
+
+/** 共有の合言葉。000000〜999999 を偏りなく選ぶ（先頭の 0 も残す） */
+export function randomPasscode(): string {
+  const limit = Math.floor(0x1_0000_0000 / 1_000_000) * 1_000_000;
+  const buf = new Uint32Array(1);
+  do crypto.getRandomValues(buf);
+  while (buf[0]! >= limit);
+  return String(buf[0]! % 1_000_000).padStart(6, "0");
+}

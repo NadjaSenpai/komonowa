@@ -82,7 +82,7 @@ describe("管理者による共有の一覧と停止", () => {
     await member.client.post(`/api/articles/${article.id}/share`);
     const { shares } = await json(await admin.get("/api/admin/shares"));
     expect(shares).toEqual([
-      { article_id: article.id, title: "共有する手順書", created_at: expect.any(Number), created_by_name: member.user.name },
+      { article_id: article.id, title: "共有する手順書", created_at: expect.any(Number), created_by_name: member.user.name, has_passcode: false },
     ]);
     expect((await admin.del(`/api/admin/shares/${article.id}`)).status).toBe(200);
     expect((await json(await admin.get("/api/admin/shares"))).shares).toEqual([]);

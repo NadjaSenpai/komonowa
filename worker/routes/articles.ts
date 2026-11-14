@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { randomToken } from "../crypto";
+import { randomPasscode, randomToken } from "../crypto";
 import { fail, int, readJson, str } from "../http";
 import { requireAuth } from "../session";
 import { extractWikiLinks, titleKey } from "../../shared/wikilinks";
@@ -341,11 +341,13 @@ articles.delete("/:id", async (c) => {
 async function findShare(db: D1Database, articleId: string, origin: string) {
   const row = await db
     .prepare(
-      `SELECT s.token, s.created_at, u.name AS created_by_name FROM article_shares s JOIN users u ON u.id = s.created_by WHERE s.article_id = ?`,
+      `SELECT s.token, s.passcode, s.created_at, u.name AS created_by_name FROM article_shares s JOIN users u ON u.id = s.created_by WHERE s.article_id = ?`,
     )
     .bind(articleId)
-    .first<{ token: string; created_at: number; created_by_name: string }>();
-  return row ? { url: `${origin}/s/${row.token}`, created_at: row.created_at, created_by_name: row.created_by_name } : null;
+    .first<{ token: string; passcode: string | null; created_at: number; created_by_name: string }>();
+  return row
+    ? { url: `${origin}/s/${row.token}`, passcode: row.passcode, created_at: row.created_at, created_by_name: row.created_by_name }
+    : null;
 }
 
 /** 共有を始める。メンバーなら誰でも、どの記事でも。すでに共有中ならその共有を返す */
@@ -363,6 +365,25 @@ articles.post("/:id/share", async (c) => {
     fail(404, "記事が見つかりません");
   }
   return c.json({ share }, res.meta.changes > 0 ? 201 : 200);
+});
+
+/** 共有のパスワード（6 桁）を付ける・作り直す。前に入れた人も入れ直しになり、間違いの記録も消す */
+articles.post("/:id/share/passcode", async (c) => {
+  const id = c.req.param("id");
+  const [res] = await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE article_shares SET passcode = ? WHERE article_id = ?").bind(randomPasscode(), id),
+    c.env.DB.prepare("DELETE FROM share_passcode_failures WHERE article_id = ?").bind(id),
+  ]);
+  if (res!.meta.changes === 0) fail(404, "共有されていません");
+  return c.json({ share: await findShare(c.env.DB, id, new URL(c.req.url).origin) });
+});
+
+/** パスワードを外す。URL を知っている人は誰でも読めるようになる */
+articles.delete("/:id/share/passcode", async (c) => {
+  const id = c.req.param("id");
+  const res = await c.env.DB.prepare("UPDATE article_shares SET passcode = NULL WHERE article_id = ?").bind(id).run();
+  if (res.meta.changes === 0) fail(404, "共有されていません");
+  return c.json({ share: await findShare(c.env.DB, id, new URL(c.req.url).origin) });
 });
 
 /** 共有を止める。行を消すので、その URL はすぐ見えなくなる */

@@ -186,11 +186,11 @@ admin.delete("/trash/:id", async (c) => {
 /** 共有中の記事。管理者はほかの人の共有も止められる */
 admin.get("/shares", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT s.article_id, a.title, s.created_at, u.name AS created_by_name
+    `SELECT s.article_id, a.title, s.created_at, u.name AS created_by_name, s.passcode IS NOT NULL AS has_passcode
        FROM article_shares s JOIN articles a ON a.id = s.article_id JOIN users u ON u.id = s.created_by
       ORDER BY s.created_at DESC`,
-  ).all();
-  return c.json({ shares: results });
+  ).all<{ has_passcode: number }>();
+  return c.json({ shares: results.map((r) => ({ ...r, has_passcode: r.has_passcode === 1 })) });
 });
 
 admin.delete("/shares/:articleId", async (c) => {
