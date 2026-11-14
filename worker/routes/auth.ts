@@ -3,10 +3,11 @@ import { getCookie } from "hono/cookie";
 import { getDummyHash, hashPassword, safeStringEqual, sha256, verifyPassword } from "../crypto";
 import type { AppEnv } from "../env";
 import { email, fail, password, readJson, str } from "../http";
+import { isBlocked, removeAccount } from "../accounts";
 import { mailer } from "../mail";
 import { emailChangedNotice } from "../mailTemplates";
 import { SESSION_COOKIE, clearSessionCookie, createSession, requireAuth, revokeUserSessions } from "../session";
-import { EMAIL_TAKEN } from "./profile";
+import { EMAIL_BLOCKED, EMAIL_TAKEN } from "./profile";
 
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 10;
@@ -174,6 +175,7 @@ auth.post("/email/confirm", async (c) => {
     .bind(tokenHash, now)
     .first<{ user_id: string; new_email: string; old_email: string }>();
   if (!row) fail(410, EMAIL_LINK_GONE);
+  if (await isBlocked(c.env.DB, row.new_email)) fail(409, EMAIL_BLOCKED);
   if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND id <> ?").bind(row.new_email, row.user_id).first()) {
     fail(409, EMAIL_TAKEN);
   }
@@ -203,6 +205,23 @@ auth.post("/email/confirm", async (c) => {
     console.error("email change notice failed", (err as { code?: string }).code ?? "", err);
   }
   return c.json({ email: row.new_email });
+});
+
+/**
+ * 退会。名前・メールアドレス・アイコン・パスワードを消す（記事と履歴は「（削除されたユーザー）」として残る）。
+ * アドレスは締め出さないので、あとでまた招待できる
+ */
+auth.post("/withdraw", requireAuth, async (c) => {
+  const body = await readJson(c);
+  const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
+  const row = await c.env.DB.prepare("SELECT password_hash, is_owner FROM users WHERE id = ?")
+    .bind(c.var.user.id)
+    .first<{ password_hash: string; is_owner: number }>();
+  if (!row || !(await verifyPassword(current, row.password_hash))) fail(403, "現在のパスワードが正しくありません");
+  if (row.is_owner) fail(409, "所有者は退会できません。先にほかの管理者に所有者を譲ってください");
+  await removeAccount(c.env, c.var.user.id, { block: false });
+  clearSessionCookie(c);
+  return c.json({ ok: true });
 });
 
 /** ログイン中の利用者が自分のパスワードを変える */

@@ -7,6 +7,8 @@ import { sendOrFail } from "../mail";
 import { inviteMail, resetMail } from "../mailTemplates";
 import { assertTitleFree } from "./articles";
 import { deleteObjects } from "./attachments";
+import { isBlocked, removeAccount } from "../accounts";
+import { EMAIL_BLOCKED } from "./profile";
 
 const HOUR = 60 * 60 * 1000;
 const RESTORE_CLASH = "同じタイトルの記事がすでにあります。どちらかのタイトルを変えてから戻してください";
@@ -17,7 +19,7 @@ admin.use("*", requireAuth, requireAdmin);
 
 admin.get("/users", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, email, name, role, status, is_owner, avatar_id, created_at FROM users ORDER BY created_at",
+    "SELECT id, email, name, role, status, is_owner, avatar_id, created_at FROM users WHERE deleted_at IS NULL ORDER BY created_at",
   ).all();
   return c.json({ users: results });
 });
@@ -25,7 +27,7 @@ admin.get("/users", async (c) => {
 admin.patch("/users/:id", async (c) => {
   const id = c.req.param("id");
   const body = await readJson(c);
-  const target = await c.env.DB.prepare("SELECT id, role, status, is_owner FROM users WHERE id = ?").bind(id).first<{
+  const target = await c.env.DB.prepare("SELECT id, role, status, is_owner FROM users WHERE id = ? AND deleted_at IS NULL").bind(id).first<{
     id: string;
     role: string;
     status: string;
@@ -58,6 +60,20 @@ admin.patch("/users/:id", async (c) => {
       .bind(Date.now(), id)
       .run();
   }
+  return c.json({ ok: true });
+});
+
+/**
+ * 強制退会。名前・メールアドレス・アイコン・パスワードを消し、同じアドレスを招待にもメールアドレスの変更先にも使えなくする。
+ * 記事と履歴は「（削除されたユーザー）」として残る
+ */
+admin.post("/users/:id/remove", async (c) => {
+  const id = c.req.param("id");
+  if (id === c.var.user.id) fail(400, "自分は強制退会できません。退会はアカウント画面から行ってください");
+  const target = await c.env.DB.prepare("SELECT is_owner FROM users WHERE id = ? AND deleted_at IS NULL").bind(id).first<{ is_owner: number }>();
+  if (!target) fail(404, "利用者が見つかりません");
+  if (target.is_owner) fail(403, "所有者は強制退会できません");
+  await removeAccount(c.env, id, { block: true });
   return c.json({ ok: true });
 });
 
@@ -105,6 +121,7 @@ admin.post("/invites", async (c) => {
   if (typeof hours !== "number" || !Number.isInteger(hours) || hours < 1 || hours > 24 * 14) {
     fail(400, "有効期限は1〜336時間で指定してください");
   }
+  if (await isBlocked(c.env.DB, addr)) fail(409, EMAIL_BLOCKED);
   if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(addr).first()) {
     fail(409, "このメールアドレスはすでに登録されています");
   }
