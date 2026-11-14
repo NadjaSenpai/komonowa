@@ -1,4 +1,4 @@
-# チーム Wiki
+# komonowa
 
 メンバー限定の日本語ナレッジベースです。Cloudflare Workers 上で動き、Cloudflare Access の利用者枠には依存しません。
 
