@@ -371,7 +371,8 @@ articles.post("/:id/share", async (c) => {
 articles.post("/:id/share/passcode", async (c) => {
   const id = c.req.param("id");
   const [res] = await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE article_shares SET passcode = ? WHERE article_id = ?").bind(randomPasscode(), id),
+    // 鍵も作り直す（前に入れた人は入れ直し）。鍵は乱数なので、URL とパスワードから計算できない
+    c.env.DB.prepare("UPDATE article_shares SET passcode = ?, passcode_key = ? WHERE article_id = ?").bind(randomPasscode(), randomToken(), id),
     c.env.DB.prepare("DELETE FROM share_passcode_failures WHERE article_id = ?").bind(id),
   ]);
   if (res!.meta.changes === 0) fail(404, "共有されていません");
@@ -381,7 +382,7 @@ articles.post("/:id/share/passcode", async (c) => {
 /** パスワードを外す。URL を知っている人は誰でも読めるようになる */
 articles.delete("/:id/share/passcode", async (c) => {
   const id = c.req.param("id");
-  const res = await c.env.DB.prepare("UPDATE article_shares SET passcode = NULL WHERE article_id = ?").bind(id).run();
+  const res = await c.env.DB.prepare("UPDATE article_shares SET passcode = NULL, passcode_key = NULL WHERE article_id = ?").bind(id).run();
   if (res.meta.changes === 0) fail(404, "共有されていません");
   return c.json({ share: await findShare(c.env.DB, id, new URL(c.req.url).origin) });
 });

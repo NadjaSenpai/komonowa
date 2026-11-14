@@ -1,6 +1,7 @@
 import { type Context, Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { safeStringEqual, sha256 } from "../crypto";
+import { clearAttempts, purgeAttempts, takeAttempt } from "../attempts";
+import { safeStringEqual } from "../crypto";
 import type { AppEnv } from "../env";
 import { fail, readJson } from "../http";
 import { attachmentResponse } from "./attachments";
@@ -19,6 +20,7 @@ const KEY_COOKIE = "share_key";
 const KEY_MAX_AGE = 30 * 24 * 60 * 60;
 const FAILURE_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 5;
+const SHARE_ATTEMPTS = { table: "share_passcode_failures", column: "article_id" } as const;
 
 share.use("*", async (c, next) => {
   await next();
@@ -32,6 +34,7 @@ interface SharedRow {
   body: string;
   updated_at: number;
   passcode: string | null;
+  passcode_key: string | null;
 }
 
 /** 共有中で、ごみ箱にない記事。理由を区別せず同じ 404 にする */
@@ -39,7 +42,7 @@ async function sharedArticle(db: D1Database, token: string) {
   if (token.length < 20 || token.length > 100) fail(404, GONE);
   const row = await db
     .prepare(
-      `SELECT a.id, a.title, a.body, a.updated_at, s.passcode FROM article_shares s JOIN articles a ON a.id = s.article_id
+      `SELECT a.id, a.title, a.body, a.updated_at, s.passcode, s.passcode_key FROM article_shares s JOIN articles a ON a.id = s.article_id
         WHERE s.token = ? AND a.deleted_at IS NULL`,
     )
     .bind(token)
@@ -48,8 +51,6 @@ async function sharedArticle(db: D1Database, token: string) {
   return row;
 }
 
-/** 鍵の値。パスワードを作り直すと合わなくなるので、サーバーに覚えておく必要がない */
-const keyOf = (token: string, passcode: string) => sha256(`${token}:${passcode}`);
 
 function needsPasscode(c: Context<AppEnv>, error: string) {
   return c.json({ error, needsPasscode: true }, 403);
@@ -60,8 +61,10 @@ async function readable(c: Context<AppEnv>) {
   const token = c.req.param("token")!;
   const row = await sharedArticle(c.env.DB, token);
   if (row.passcode === null) return { row };
+  // 鍵はパスワードを付けるたびにサーバーが乱数で作る。URL とパスワードから計算できないので、
+  // 回数制限のある unlock を通らずに総当たりすることはできない
   const key = getCookie(c, KEY_COOKIE) ?? "";
-  if (await safeStringEqual(key, await keyOf(token, row.passcode))) return { row };
+  if (row.passcode_key && (await safeStringEqual(key, row.passcode_key))) return { row };
   return { denied: needsPasscode(c, "パスワードを入れてください") };
 }
 
@@ -77,21 +80,15 @@ share.post("/:token/unlock", async (c) => {
   if (row.passcode === null) return c.json({ ok: true });
   const body = await readJson(c);
   const given = typeof body.passcode === "string" ? body.passcode.trim() : "";
-  const now = Date.now();
-  // 当て続けて最後に正解、を防ぐため、正しいパスワードでも先に回数を見る
-  const failures = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM share_passcode_failures WHERE article_id = ? AND created_at > ?")
-    .bind(row.id, now - FAILURE_WINDOW_MS)
-    .first<number>("n");
-  if ((failures ?? 0) >= MAX_FAILURES) fail(429, "間違いが続いたため、15分ほど待ってからもう一度試してください");
-  if (!(await safeStringEqual(given, row.passcode))) {
-    await c.env.DB.batch([
-      c.env.DB.prepare("INSERT INTO share_passcode_failures (article_id, created_at) VALUES (?, ?)").bind(row.id, now),
-      c.env.DB.prepare("DELETE FROM share_passcode_failures WHERE created_at < ?").bind(now - FAILURE_WINDOW_MS),
-    ]);
+  // 先に試しを記録してから確かめる（当て続けて最後に正解、も、同時に送ってすり抜ける、も防ぐ）
+  const attempt = await takeAttempt(c.env.DB, SHARE_ATTEMPTS, row.id, FAILURE_WINDOW_MS, MAX_FAILURES);
+  if (attempt === null) fail(429, "間違いが続いたため、15分ほど待ってからもう一度試してください");
+  if (!row.passcode_key || !(await safeStringEqual(given, row.passcode))) {
+    await purgeAttempts(c.env.DB, SHARE_ATTEMPTS, FAILURE_WINDOW_MS).run();
     return needsPasscode(c, "パスワードが違います");
   }
-  await c.env.DB.prepare("DELETE FROM share_passcode_failures WHERE article_id = ?").bind(row.id).run();
-  setCookie(c, KEY_COOKIE, await keyOf(token, row.passcode), {
+  await clearAttempts(c.env.DB, SHARE_ATTEMPTS, row.id);
+  setCookie(c, KEY_COOKIE, row.passcode_key, {
     path: `/api/share/${token}`,
     httpOnly: true,
     secure: true,

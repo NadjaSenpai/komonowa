@@ -4,6 +4,7 @@ import { getDummyHash, hashPassword, safeStringEqual, sha256, verifyPassword } f
 import type { AppEnv } from "../env";
 import { email, fail, password, readJson, str } from "../http";
 import { isBlocked, removeAccount } from "../accounts";
+import { clearAttempts, purgeAttempts, takeAttempt } from "../attempts";
 import { mailer } from "../mail";
 import { emailChangedNotice } from "../mailTemplates";
 import { SESSION_COOKIE, clearSessionCookie, createSession, requireAuth, revokeUserSessions } from "../session";
@@ -11,6 +12,7 @@ import { EMAIL_BLOCKED, EMAIL_TAKEN } from "./profile";
 
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 10;
+const LOGIN_ATTEMPTS = { table: "login_failures", column: "email" } as const;
 
 export const auth = new Hono<AppEnv>();
 
@@ -48,24 +50,19 @@ auth.post("/login", async (c) => {
   const addr = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const pass = typeof body.password === "string" ? body.password : "";
   if (!addr || !pass) fail(400, "メールアドレスとパスワードを入力してください");
-  const now = Date.now();
-  const failures = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM login_failures WHERE email = ? AND created_at > ?")
-    .bind(addr, now - LOCK_WINDOW_MS)
-    .first<number>("n");
-  if ((failures ?? 0) >= MAX_FAILURES) fail(429, "ログイン失敗が続いたため一時的にロックしています。15分ほど待ってください");
+  // 先に試しを記録する（失敗として残り、成功したら消す）。同時に送られても MAX_FAILURES 回までしか確かめない
+  const attempt = await takeAttempt(c.env.DB, LOGIN_ATTEMPTS, addr, LOCK_WINDOW_MS, MAX_FAILURES);
+  if (attempt === null) fail(429, "ログイン失敗が続いたため一時的にロックしています。15分ほど待ってください");
 
   const user = await c.env.DB.prepare("SELECT id, email, name, role, status, password_hash, avatar_id FROM users WHERE email = ?")
     .bind(addr)
     .first<{ id: string; email: string; name: string; role: string; status: string; password_hash: string; avatar_id: string | null }>();
   const ok = await verifyPassword(pass, user?.password_hash ?? (await getDummyHash()));
   if (!user || !ok || user.status !== "active") {
-    await c.env.DB.batch([
-      c.env.DB.prepare("INSERT INTO login_failures (email, created_at) VALUES (?, ?)").bind(addr, now),
-      c.env.DB.prepare("DELETE FROM login_failures WHERE created_at < ?").bind(now - LOCK_WINDOW_MS),
-    ]);
+    await purgeAttempts(c.env.DB, LOGIN_ATTEMPTS, LOCK_WINDOW_MS).run();
     fail(401, "メールアドレスまたはパスワードが正しくありません");
   }
-  await c.env.DB.prepare("DELETE FROM login_failures WHERE email = ?").bind(addr).run();
+  await clearAttempts(c.env.DB, LOGIN_ATTEMPTS, addr);
   await createSession(c, user.id);
   return c.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, avatar_id: user.avatar_id } });
 });
