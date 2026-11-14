@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sharedHtml } from "../share";
+import { cleanPasscode, sharedHtml } from "../share";
 
 const TOKEN = "tok_ABCdef0123456789-xyz";
 const ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
@@ -28,5 +28,14 @@ describe("共有ページの本文", () => {
   it("外部リンクはそのまま", () => {
     const root = mount("[外](https://example.com/a)");
     expect(root.querySelector("a")?.getAttribute("href")).toBe("https://example.com/a");
+  });
+});
+
+describe("パスワードの入力", () => {
+  it("数字だけを 6 桁まで残す", () => {
+    expect(cleanPasscode("12 34-56")).toBe("123456");
+    // 日本語入力の全角数字も受け付ける
+    expect(cleanPasscode("０１２abc3456789")).toBe("012345");
+    expect(cleanPasscode("D1d2")).toBe("12");
   });
 });

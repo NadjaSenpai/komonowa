@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
 import { ApiError, api, errorMessage, formatDate } from "../api";
-import { sharedHtml } from "../share";
+import { cleanPasscode, sharedHtml } from "../share";
 
 interface SharedArticle {
   title: string;
@@ -72,10 +72,10 @@ export function SharedPage() {
               <input
                 className="passcode-input"
                 value={passcode}
-                onChange={(e) => setPasscode(e.target.value.replace(/D/g, "").slice(0, 6))}
+                onChange={(e) => setPasscode(cleanPasscode(e.target.value))}
                 inputMode="numeric"
                 autoComplete="off"
-                pattern="d{6}"
+                pattern="\d{6}"
                 maxLength={6}
                 required
                 autoFocus

@@ -19,3 +19,8 @@ export function sharedHtml(body: string, token: string): string {
   }
   return doc.body.innerHTML;
 }
+
+/** パスワード欄の入力。全角数字を半角にして、数字だけを 6 桁まで残す */
+export function cleanPasscode(value: string): string {
+  return value.normalize("NFKC").replace(/\D/g, "").slice(0, 6);
+}
