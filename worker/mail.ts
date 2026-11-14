@@ -1,10 +1,11 @@
 import { fail } from "./http";
 
-/** komonowa が送るメール（文字だけ） */
+/** komonowa が送るメール。html があれば HTML と文字だけの本文の両方を送る（worker/mailTemplates.ts） */
 export interface Mail {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 }
 
 export const MAIL_FAILED = "メールを送れませんでした。アドレスを確かめて、もう一度試してください";
@@ -18,11 +19,6 @@ export const mailer = {
     await env.EMAIL.send({ from: { email: env.MAIL_FROM, name: "komonowa" }, ...mail });
   },
 };
-
-/** メールに書く日時（チームは日本にいる前提で日本時間） */
-export function formatJst(ms: number): string {
-  return new Date(ms).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", dateStyle: "medium", timeStyle: "short" }) + "（日本時間）";
-}
 
 /** 送れなければ 502。呼び出し側は送れてから記録するので、失敗しても何も残らない */
 export async function sendOrFail(env: Env, mail: Mail): Promise<void> {

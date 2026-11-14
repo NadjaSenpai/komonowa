@@ -3,7 +3,8 @@ import { randomToken, sha256 } from "../crypto";
 import type { AppEnv } from "../env";
 import { email, fail, readJson, str } from "../http";
 import { requireAdmin, requireAuth, revokeUserSessions } from "../session";
-import { formatJst, sendOrFail } from "../mail";
+import { sendOrFail } from "../mail";
+import { inviteMail, resetMail } from "../mailTemplates";
 import { assertTitleFree } from "./articles";
 
 const HOUR = 60 * 60 * 1000;
@@ -67,20 +68,10 @@ admin.post("/users/:id/reset-link", async (c) => {
   const token = randomToken();
   const now = Date.now();
   const expires = now + 24 * HOUR;
-  await sendOrFail(c.env, {
-    to: user.email,
-    subject: "komonowa のパスワード再設定",
-    text: [
-      `${c.var.user.name} さんが、チームWiki「komonowa」のパスワード再設定リンクを送りました。`,
-      "",
-      "次のリンクを開くと、新しいパスワードを決められます。",
-      `${new URL(c.req.url).origin}/reset#${token}`,
-      "",
-      `有効期限：${formatJst(expires)}（一度だけ使えます）`,
-      "",
-      "心当たりがなければ、このメールは無視してください。今のパスワードはそのまま使えます。",
-    ].join("\n"),
-  });
+  await sendOrFail(
+    c.env,
+    resetMail({ to: user.email, sender: c.var.user.name, url: `${new URL(c.req.url).origin}/reset#${token}`, expiresAt: expires }),
+  );
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, id),
     c.env.DB.prepare(
@@ -117,20 +108,10 @@ admin.post("/invites", async (c) => {
   const now = Date.now();
   const expires = now + hours * HOUR;
   // 先に送り、送れたときだけ記録する（失敗しても前の招待はそのまま使える）
-  await sendOrFail(c.env, {
-    to: addr,
-    subject: "komonowa に招待されました",
-    text: [
-      `${c.var.user.name} さんから、チームWiki「komonowa」に${role === "admin" ? "管理者" : "メンバー"}として招待されました。`,
-      "",
-      "次のリンクを開き、表示名とパスワードを決めると登録できます。",
-      `${new URL(c.req.url).origin}/invite#${token}`,
-      "",
-      `有効期限：${formatJst(expires)}（一度だけ使えます）`,
-      "",
-      "心当たりがなければ、このメールは無視してください。",
-    ].join("\n"),
-  });
+  await sendOrFail(
+    c.env,
+    inviteMail({ to: addr, inviter: c.var.user.name, role, url: `${new URL(c.req.url).origin}/invite#${token}`, expiresAt: expires }),
+  );
   await c.env.DB.batch([
     // 同じアドレスへの未使用の招待は置き換える
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND email = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, addr),

@@ -80,7 +80,7 @@ describe("招待", () => {
     expect(await json(res)).not.toHaveProperty("token");
     const mail = lastMail();
     expect(mail.to).toBe("new@example.com");
-    expect(mail.subject).toBe("komonowa に招待されました");
+    expect(mail.subject).toBe("「komonowa」に招待されました");
     expect(mail.text).toContain("https://wiki.example.com/invite#");
     expect(mail.text).toContain(ADMIN.name);
     const token = tokenFrom(mail);
@@ -146,7 +146,7 @@ describe("パスワード再設定と無効化", () => {
     expect(await json(res)).not.toHaveProperty("token");
     const mail = lastMail();
     expect(mail.to).toBe(member.email);
-    expect(mail.subject).toBe("komonowa のパスワード再設定");
+    expect(mail.subject).toBe("「komonowa」のパスワード再設定");
     expect(mail.text).toContain("https://wiki.example.com/reset#");
     const token = tokenFrom(mail);
     // 新しいリンクを送ると古いリンクは無効
