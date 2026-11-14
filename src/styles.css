@@ -205,6 +205,12 @@ button.link:hover { background: none; text-decoration: underline; }
 /* チェックリスト：箇条書きの点の代わりにチェックの印を出す */
 .markdown li:has(> .task-box) { list-style: none; }
 .markdown .task-box { display: inline-block; inline-size: 1.4em; margin-inline-start: -1.4em; color: var(--color-ink-2); }
+/* 表示画面では付け外しできる（このブラウザにだけ保存）。付いた項目は薄く取り消し線 */
+.markdown .task-box[role="checkbox"] { cursor: pointer; user-select: none; border-radius: var(--radius-control); }
+.markdown .task-box[role="checkbox"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+.markdown li.done { color: var(--color-muted); text-decoration: line-through; }
+.markdown li.done li { color: var(--color-ink); text-decoration: none; }
+.task-actions { margin: var(--space-xs) 0 0; }
 
 .attachments ul { padding-left: var(--space-lg); }
 .attachments li { display: flex; gap: var(--space-sm); align-items: baseline; flex-wrap: wrap; }

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAuth } from "../App";
 import { api, errorMessage, formatDate, formatSize, type Article, type Attachment, type Backlink, type WikiLink } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 import { ACCEPT, uploadAttachment } from "../upload";
+import { anyTaskChecked, clearTaskChecks, prepareTaskBoxes, toggleTaskBox } from "../taskChecks";
 import { useInternalLinks } from "../useInternalLinks";
 import { titleKey } from "../../shared/wikilinks";
 
@@ -48,6 +49,37 @@ export function ArticleViewPage() {
 
   useEffect(load, [load]);
   const html = useMemo(() => (article ? markMissingLinks(renderMarkdown(article.body), links) : ""), [article, links]);
+
+  // チェックリスト：描画し直すたびに、このブラウザに覚えている付け外しを当て直す
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [anyChecked, setAnyChecked] = useState(false);
+  useEffect(() => {
+    if (!bodyRef.current) return;
+    prepareTaskBoxes(bodyRef.current, id);
+    setAnyChecked(anyTaskChecked(bodyRef.current));
+  }, [html, id]);
+
+  function onBodyClickWithTasks(e: MouseEvent<HTMLDivElement>) {
+    const box = (e.target as Element).closest?.(".task-box[role='checkbox']");
+    if (!box) return onBodyClick(e);
+    toggleTaskBox(box, e.currentTarget, id);
+    setAnyChecked(anyTaskChecked(e.currentTarget));
+  }
+
+  function onBodyKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== " " && e.key !== "Enter") return;
+    const box = (e.target as Element).closest?.(".task-box[role='checkbox']");
+    if (!box) return;
+    e.preventDefault();
+    toggleTaskBox(box, e.currentTarget, id);
+    setAnyChecked(anyTaskChecked(e.currentTarget));
+  }
+
+  function clearChecks() {
+    if (!bodyRef.current) return;
+    clearTaskChecks(bodyRef.current, id);
+    setAnyChecked(false);
+  }
 
   if (error) return <p className="error">{error}</p>;
   if (!article) return <p className="muted">読み込み中…</p>;
@@ -115,7 +147,18 @@ export function ArticleViewPage() {
         )}
         <span className="meta-item">第{article.version}版</span>
       </p>
-      <div className="markdown article-body" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
+      <div
+        ref={bodyRef}
+        className="markdown article-body"
+        onClick={onBodyClickWithTasks}
+        onKeyDown={onBodyKeyDown}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {anyChecked && (
+        <p className="task-actions">
+          <button type="button" className="link small" onClick={clearChecks}>チェックをすべて外す</button>
+        </p>
+      )}
 
       {backlinks.length > 0 && (
         <section className="backlinks">
