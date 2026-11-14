@@ -81,6 +81,7 @@ export function LoginPage() {
       <div className="auth-help small">
         <p><strong>登録について</strong><br />アカウントは管理者からの招待で作成します。</p>
         <p><strong>パスワードを忘れた場合</strong><br />管理者に再設定リンクの発行を依頼してください。</p>
+        <p><strong>使い方</strong><br /><Link to="/help">ヘルプ</Link>をご覧ください。</p>
       </div>
     </AuthCard>
   );

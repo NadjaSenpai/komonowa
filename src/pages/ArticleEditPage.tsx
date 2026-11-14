@@ -224,7 +224,11 @@ export function ArticleEditPage() {
           }}
         />
       </div>
-      <MarkupToolbar disabled={tab !== "edit"} onAction={markup} />
+      <div className="markup-row">
+        <MarkupToolbar disabled={tab !== "edit"} onAction={markup} />
+        {/* 書きかけを失わないよう新しいタブで開く */}
+        <a className="markup-help small" href="/help#markdown" target="_blank" rel="noopener">書き方</a>
+      </div>
       {tab === "edit" ? (
         <textarea
           ref={textarea}

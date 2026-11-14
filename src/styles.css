@@ -305,6 +305,21 @@ button.link:hover { background: none; text-decoration: underline; }
 .markup-more summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .markup-more-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-dropdown); display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 250px; padding: var(--space-sm); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); box-shadow: 0 8px 24px #29342f18; }
 .markup-toolbar button { white-space: nowrap; }
+.markup-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-xs); }
+.markup-help { align-self: center; padding-bottom: var(--space-2xs); }
+
+/* ヘルプ（/help） */
+.help { max-width: 760px; }
+.help-toc ol { margin: 0; padding-left: 1.4em; columns: 2; column-gap: var(--space-xl); }
+.help-section { margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); scroll-margin-top: var(--space-lg); }
+.help-section h2 { scroll-margin-top: var(--space-lg); }
+.help-table { overflow-x: auto; }
+.help-table th[scope="row"] { white-space: nowrap; vertical-align: top; }
+.help-table td { vertical-align: top; }
+.help-table pre { margin: 0; white-space: pre; font-size: var(--text-xs); }
+.help-table .markdown { padding: var(--space-xs) var(--space-sm); }
+.help-table .markdown > :last-child { margin-bottom: 0; }
+@media (max-width: 760px) { .help-toc ol { columns: 1; } }
 .tabs button.active { color: var(--color-ink); border-color: var(--color-ink); font-weight: 700; }
 .preview { min-height: 20rem; }
 .conflict { border: 2px solid var(--color-error); border-radius: var(--radius-card); padding: var(--space-sm) var(--space-md); background: var(--color-paper-2); }

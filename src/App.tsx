@@ -7,6 +7,7 @@ import { AdminPage } from "./pages/AdminPage";
 import { ArticleEditPage } from "./pages/ArticleEditPage";
 import { ArticleListPage } from "./pages/ArticleListPage";
 import { ArticleViewPage } from "./pages/ArticleViewPage";
+import { HelpPage } from "./pages/HelpPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { EmailConfirmPage, InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
 import { WikiLinkPage } from "./pages/WikiLinkPage";
@@ -55,6 +56,7 @@ export function App() {
         <Route path="/invite" element={<InvitePage />} />
         <Route path="/reset" element={<ResetPage />} />
         <Route path="/email" element={<EmailConfirmPage />} />
+        <Route path="/help" element={<HelpRoute />} />
         <Route path="/" element={<Protected><ArticleListPage /></Protected>} />
         <Route path="/articles/new" element={<Protected><ArticleEditPage /></Protected>} />
         <Route path="/articles/:id" element={<Protected><ArticleViewPage /></Protected>} />
@@ -77,6 +79,23 @@ function Protected({ children, admin = false }: { children: ReactNode; admin?: b
   return <Layout>{children}</Layout>;
 }
 
+/** ヘルプはログインしていなくても読める（ログイン画面・招待画面から開けるように） */
+function HelpRoute() {
+  const { user } = useAuth();
+  if (user) return <Layout><HelpPage /></Layout>;
+  return (
+    <div className="app">
+      <header className="topbar">
+        <Link to="/" className="brand">komonowa</Link>
+        <nav>
+          <NavLink to="/login">ログイン</NavLink>
+        </nav>
+      </header>
+      <main className="content"><HelpPage /></main>
+    </div>
+  );
+}
+
 function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -87,6 +106,7 @@ function Layout({ children }: { children: ReactNode }) {
         <nav>
           <NavLink to="/" end>記事</NavLink>
           {user?.role === "admin" && <NavLink to="/admin">管理</NavLink>}
+          <NavLink to="/help">ヘルプ</NavLink>
           {user && (
             <NavLink to="/account" className="account" title="アカウント設定">
               <Avatar userId={user.id} name={user.name} avatarId={user.avatar_id} />
