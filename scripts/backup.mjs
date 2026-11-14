@@ -5,6 +5,7 @@
 // 出力: backups/<日時>/d1.sql, manifest.json, r2/<key>（添付とアイコン画像）
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { snapshotFiles } from "./backup-snapshot.mjs";
 import { DB_NAME, BUCKET, modeFlag, wrangler } from "./wrangler.mjs";
 
 const mode = modeFlag(process.argv);
@@ -15,22 +16,8 @@ mkdirSync(path.join(outDir, "r2"), { recursive: true });
 console.log(`[1/3] D1 をエクスポート → ${path.join(outDir, "d1.sql")}`);
 wrangler(["d1", "export", DB_NAME, mode, "--output", path.join(outDir, "d1.sql")]);
 
-console.log("[2/3] 添付ファイルとアイコン画像の一覧を取得");
-const out = wrangler(
-  [
-    "d1",
-    "execute",
-    DB_NAME,
-    mode,
-    "--json",
-    "--command",
-    "SELECT r2_key, content_type, size FROM attachments UNION ALL SELECT 'avatars/' || id || '/' || avatar_id, avatar_type, NULL FROM users WHERE avatar_id IS NOT NULL ORDER BY 1",
-  ],
-  {
-    capture: true,
-  },
-);
-const files = JSON.parse(out)[0].results;
+console.log("[2/3] バックアップSQLから添付ファイルとアイコン画像の一覧を取得");
+const files = snapshotFiles(path.join(outDir, "d1.sql"));
 
 console.log(`[3/3] R2 から ${files.length} 件をダウンロード`);
 for (const [i, f] of files.entries()) {

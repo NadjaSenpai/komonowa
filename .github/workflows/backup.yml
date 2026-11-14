@@ -1,0 +1,44 @@
+name: Backup
+
+on:
+  # 初回の接続確認用。確認後にこのpushトリガーを削除する。
+  push:
+    branches: [ops/b2-backup]
+  schedule:
+    # UTC 00:23 = JST 09:23
+    - cron: "23 0 1,8,15,22 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # デプロイと並列に走らせない。手動実行も同じロックを使う。
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg sqlite3
+          aws --version
+          npm ci
+      - name: Back up and verify D1 and R2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+          AWS_EC2_METADATA_DISABLED: "true"
+          AWS_PAGER: ""
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: npm run backup:b2

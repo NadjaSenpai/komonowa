@@ -15,7 +15,9 @@
     "cf-typegen": "wrangler types worker/worker-configuration.d.ts",
     "lint": "biome ci .",
     "format": "biome format --write .",
-    "check": "biome ci . && tsc -b && vitest run && vite build",
+    "check": "biome ci . && tsc -b && vitest run && npm run test:scripts && vite build",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "backup:b2": "node scripts/backup-b2.mjs",
     "backup:remote": "node scripts/backup.mjs --remote",
     "backup:local": "node scripts/backup.mjs --local",
     "restore:r2": "node scripts/restore-r2.mjs"
