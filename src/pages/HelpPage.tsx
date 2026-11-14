@@ -26,7 +26,7 @@ export const MARKDOWN_EXAMPLES: { label: string; source: string; preview?: strin
   { label: "見出し", source: "## 大きい見出し\n### 小さい見出し" },
   { label: "太字", source: "ここは **太字** です" },
   { label: "取り消し線", source: "~~取り消し~~" },
-  { label: "リンク", source: "[komonowa](https://example.com)" },
+  { label: "リンク", source: "[komonowa のトップ](/)" },
   { label: "記事リンク", source: "[[記事のタイトル]]" },
   { label: "箇条書き", source: "- りんご\n- みかん\n  - 字下げすると入れ子" },
   { label: "番号付きリスト", source: "1. 材料を切る\n2. 炒める" },

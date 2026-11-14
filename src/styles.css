@@ -319,7 +319,9 @@ button.link:hover { background: none; text-decoration: underline; }
 .help-table td { vertical-align: top; }
 .help-table pre { margin: 0; white-space: pre; font-size: var(--text-xs); }
 .help-table .markdown { padding: var(--space-xs) var(--space-sm); }
+.help-table .markdown > :first-child { margin-top: 0; }
 .help-table .markdown > :last-child { margin-bottom: 0; }
+.help-table tbody th { border-bottom-color: var(--color-rule); }
 @media (max-width: 760px) { .help-toc ol { columns: 1; } }
 .tabs button.active { color: var(--color-ink); border-color: var(--color-ink); font-weight: 700; }
 .preview { min-height: 20rem; }
