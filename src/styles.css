@@ -74,7 +74,8 @@ button.link:hover { background: none; text-decoration: underline; }
 /* ---------- ヘッダー ---------- */
 .topbar {
   display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
-  min-height: 64px; padding: var(--space-sm) max(var(--space-lg), calc((100% - var(--content)) / 2));
+  /* 左右の余白は .content と同じ計算にして、ロゴと本文の左端をそろえる */
+  min-height: 64px; padding: var(--space-sm) max(var(--space-lg), calc((100% - var(--content)) / 2 + var(--space-lg)));
   background: var(--color-paper-2); border-bottom: 1px solid var(--color-rule);
 }
 .brand { font-weight: 800; font-size: var(--text-xl); letter-spacing: -0.01em; color: var(--color-accent); text-decoration: none; }
@@ -169,7 +170,8 @@ button.link:hover { background: none; text-decoration: underline; }
 
 /* ---------- 記事 ---------- */
 .article-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); flex-wrap: wrap; }
-.article-page { max-width: 760px; margin: 0 auto; }
+/* 読みやすい幅に抑えるが、左端はほかの画面と同じ線にそろえる（中央寄せにしない） */
+.article-page { max-width: 760px; margin: 0; }
 .article-page .article-head { margin-bottom: var(--space-sm); }
 .article-page h1 { font-size: var(--text-3xl); margin: 0; }
 .article-page > .meta { margin-bottom: var(--space-xl); padding-bottom: var(--space-lg); border-bottom: 1px solid var(--color-rule); }
@@ -206,7 +208,9 @@ button.link:hover { background: none; text-decoration: underline; }
 /* 項目の間に空行があると「ゆるいリスト」になり、印は <p> の中に入る。そのときも点を消し、段落の余白を詰める */
 .markdown li:has(> .task-box, > p:first-child > .task-box) { list-style: none; }
 .markdown li:has(> p:first-child > .task-box) > p { margin-block: 0; }
-.markdown .task-box { display: inline-block; inline-size: 1.4em; margin-inline-start: -1.4em; color: var(--color-ink-2); }
+/* リストの字下げを固定し、点・番号・☐ を同じ縦の線（文字の直前、右寄せ）に置く */
+.markdown :is(ul, ol) { padding-inline-start: 1.75em; }
+.markdown .task-box { display: inline-block; inline-size: 1.75em; margin-inline-start: -1.75em; padding-inline-end: 0.3em; text-align: end; color: var(--color-ink-2); }
 /* 表示画面では付け外しできる（このブラウザにだけ保存）。付いた項目は薄く取り消し線 */
 .markdown .task-box[role="checkbox"] { cursor: pointer; user-select: none; border-radius: var(--radius-control); }
 .markdown .task-box[role="checkbox"]:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
