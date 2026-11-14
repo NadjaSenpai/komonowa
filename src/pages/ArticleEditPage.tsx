@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
 import { useBlocker, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError, api, errorMessage, type Article } from "../api";
 import { renderMarkdown } from "../markdown";
+import { applyMarkup, insertIntoTextarea, markupShortcut, type MarkupAction } from "../markup";
+import { MarkupToolbar } from "../MarkupToolbar";
 import { ACCEPT, attachmentMarkdown, namePastedFile, referencedIds, uploadAttachment } from "../upload";
 
 function parseTags(input: string) {
@@ -130,6 +132,20 @@ export function ArticleEditPage() {
     }
   }
 
+  /** ツールバーやショートカットで、選択範囲に Markdown の記号を付ける */
+  function markup(action: MarkupAction) {
+    const el = textarea.current;
+    if (!el || tab !== "edit") return;
+    insertIntoTextarea(el, applyMarkup(action, el.value, el.selectionStart, el.selectionEnd), setBody);
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    const action = markupShortcut(e);
+    if (!action) return;
+    e.preventDefault();
+    markup(action);
+  }
+
   function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     const files = Array.from(e.clipboardData.files);
     if (files.length === 0) return;
@@ -208,6 +224,7 @@ export function ArticleEditPage() {
           }}
         />
       </div>
+      <MarkupToolbar disabled={tab !== "edit"} onAction={markup} />
       {tab === "edit" ? (
         <textarea
           ref={textarea}
@@ -215,6 +232,7 @@ export function ArticleEditPage() {
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onPaste={onPaste}
+          onKeyDown={onKeyDown}
           onDragOver={onDragOver}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}

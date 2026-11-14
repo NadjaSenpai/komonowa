@@ -81,3 +81,41 @@ export function applyMarkup(action: MarkupAction, text: string, selStart: number
   const at = from + wrap.open.length;
   return { from, to, insert: wrap.open + body + wrap.close, selectFrom: at, selectTo: at + body.length };
 }
+
+/**
+ * edit を本文欄に差し込む。キーボードで打ったのと同じ扱いになるよう execCommand("insertText") を使い、
+ * ブラウザ標準の取り消し（Ctrl+Z）に載せる。使えないブラウザでは fallback で本文を書き換える（その場合は取り消せない）
+ */
+export function insertIntoTextarea(el: HTMLTextAreaElement, edit: MarkupEdit, fallback: (next: string) => void): void {
+  el.focus();
+  el.setSelectionRange(edit.from, edit.to);
+  let inserted = false;
+  try {
+    inserted = typeof document.execCommand === "function" && document.execCommand("insertText", false, edit.insert);
+  } catch {
+    inserted = false;
+  }
+  if (inserted) {
+    el.setSelectionRange(edit.selectFrom, edit.selectTo);
+    return;
+  }
+  fallback(applyEdit(el.value, edit));
+  // 書き換えた本文が描画されてから選択する
+  requestAnimationFrame(() => {
+    el.focus();
+    el.setSelectionRange(edit.selectFrom, edit.selectTo);
+  });
+}
+
+type ShortcutEvent = Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey"> & {
+  isComposing?: boolean;
+  nativeEvent?: { isComposing?: boolean };
+};
+
+/** Ctrl+B／⌘B で太字、Ctrl+K／⌘K でリンク。日本語入力の変換中は何もしない */
+export function markupShortcut(e: ShortcutEvent): MarkupAction | null {
+  if (e.isComposing || e.nativeEvent?.isComposing) return null;
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return null;
+  const key = e.key.toLowerCase();
+  return key === "b" ? "bold" : key === "k" ? "link" : null;
+}

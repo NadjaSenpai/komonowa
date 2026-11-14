@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyEdit, applyMarkup, type MarkupAction } from "../markup";
+import { applyEdit, applyMarkup, insertIntoTextarea, markupShortcut, type MarkupAction } from "../markup";
 
 /** "a|bc|d" は bc を選択、"ab|c" はカーソルだけ。結果も同じ形式で返す */
 function run(action: MarkupAction, marked: string): string {
@@ -38,4 +38,27 @@ describe("applyMarkup：行に付ける記号", () => {
   it("番号：空行を飛ばして連番", () => expect(run("numbered", "|a\n\nb\nc|")).toBe("|1. a\n\n2. b\n3. c|"));
   it("チェック", () => expect(run("task", "|a|")).toBe("|- [ ] a|"));
   it("引用", () => expect(run("quote", "|a\nb|")).toBe("|> a\n> b|"));
+});
+
+describe("insertIntoTextarea", () => {
+  it("execCommand が使えなければ fallback に書き換え後の本文を渡す", () => {
+    const el = document.createElement("textarea");
+    el.value = "ab";
+    document.body.append(el);
+    const calls: string[] = [];
+    insertIntoTextarea(el, { from: 1, to: 1, insert: "X", selectFrom: 2, selectTo: 2 }, (next) => calls.push(next));
+    expect(calls).toEqual(["aXb"]);
+    el.remove();
+  });
+});
+
+describe("markupShortcut", () => {
+  const key = (init: Partial<KeyboardEventInit> & { isComposing?: boolean }) => new KeyboardEvent("keydown", init);
+  it("ショートカット", () => {
+    expect(markupShortcut(key({ ctrlKey: true, key: "b" }))).toBe("bold");
+    expect(markupShortcut(key({ metaKey: true, key: "k" }))).toBe("link");
+    expect(markupShortcut(key({ ctrlKey: true, shiftKey: true, key: "b" }))).toBeNull();
+    expect(markupShortcut(key({ ctrlKey: true, key: "b", isComposing: true }))).toBeNull();
+    expect(markupShortcut(key({ key: "b" }))).toBeNull();
+  });
 });
