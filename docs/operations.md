@@ -100,6 +100,6 @@ npm run dev
 
   ```sh
   HASH=$(printf "%s" "<アドレス>" | openssl dgst -sha256 -binary | basenc --base64url | tr -d "=")
-  npx wrangler d1 execute wiki-db --remote --command "DELETE FROM blocked_emails WHERE email_hash = "
+  npx wrangler d1 execute wiki-db --remote --command "DELETE FROM blocked_emails WHERE email_hash = '$HASH'"
   ```
 - **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る
