@@ -176,6 +176,21 @@ describe("一覧の cover", () => {
     expect(articles[0]).not.toHaveProperty("body");
   });
 
+  it("下書き添付で作った記事でも選び、編集・復元のたびに選び直す", async () => {
+    const admin = await adminClient();
+    const draft = (await json(await uploadDraft(admin, PNG, "d.png", THUMB))).attachment;
+    const res = await admin.post("/api/articles", { title: "下書きの写真", body: `![写真](${draft.url})`, tags: [], attachmentIds: [draft.id] });
+    const { article } = await json(res);
+    expect(await coverOf(admin, article.id)).toBe(draft.id);
+
+    const put = await admin.put(`/api/articles/${article.id}`, { title: "下書きの写真", body: "写真を外した", tags: [], baseVersion: 1 });
+    expect(put.status).toBe(200);
+    expect(await coverOf(admin, article.id)).toBeNull();
+
+    expect((await admin.post(`/api/articles/${article.id}/revisions/1/restore`, { baseVersion: 2 })).status).toBe(200);
+    expect(await coverOf(admin, article.id)).toBe(draft.id);
+  });
+
   it("画像がなければ null", async () => {
     const admin = await adminClient();
     const article = await createArticle(admin, { body: "文字だけ" });

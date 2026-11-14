@@ -118,8 +118,23 @@ function writeStatements(
         .bind(articleId, tag, articleId, revisionId),
     );
   }
+  // 一覧に出す画像。本文で最初に出てくる、その記事に添付された画像（ほかの記事の添付や画像以外は飛ばす）。
+  // 本文で使われている添付は消せないので（attachments.ts）、保存のときに選べば足りる
+  const images = [...input.body.matchAll(IMAGE_ATTACHMENT)].map((m) => m[1]!);
+  stmts.push(
+    db
+      .prepare(
+        `UPDATE articles SET cover_id = (
+           SELECT f.id FROM json_each(?) j JOIN attachments f ON f.id = j.value
+            WHERE f.article_id = ? AND f.content_type LIKE 'image/%' ORDER BY j.key LIMIT 1)
+          WHERE id = ? AND revision_id = ?`,
+      )
+      .bind(JSON.stringify(images), articleId, articleId, revisionId),
+  );
   return stmts;
 }
+
+const IMAGE_ATTACHMENT = /!\[[^\]]*\]\(\/api\/attachments\/([0-9a-f-]{36})\)/g;
 
 const TAGS_JSON = `(SELECT json_group_array(t.name) FROM article_tags at JOIN tags t ON t.id = at.tag_id WHERE at.article_id = a.id)`;
 
@@ -175,45 +190,20 @@ articles.get("/", async (c) => {
     params.push(...tags, tags.length);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.body, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.cover_id AS cover, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
             ${TAGS_JSON} AS tags
        FROM articles a JOIN users uu ON uu.id = a.updated_by
       WHERE ${where.join(" AND ")}
       ORDER BY a.updated_at DESC LIMIT ? OFFSET ?`,
   )
     .bind(...params, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE)
-    .all<{ id: string; body: string; tags: string }>();
-  const shown = results.slice(0, PAGE_SIZE);
-  const covers = await findCovers(c.env.DB, shown);
+    .all<{ id: string; tags: string }>();
   return c.json({
-    articles: shown.map(({ body: _body, ...r }) => ({ ...r, tags: JSON.parse(r.tags) as string[], cover: covers.get(r.id) ?? null })),
+    articles: results.slice(0, PAGE_SIZE).map((r) => ({ ...r, tags: JSON.parse(r.tags) as string[] })),
     hasMore: results.length > PAGE_SIZE,
     page,
   });
 });
-
-const IMAGE_ATTACHMENT = /!\[[^\]]*\]\(\/api\/attachments\/([0-9a-f-]{36})\)/g;
-
-/**
- * 一覧に出す画像。本文で最初に出てくる、その記事に添付された画像。
- * 保存時に決めておくと、編集・復元・添付の削除のたびに直す必要があるので、一覧を返すときに本文から探す
- */
-async function findCovers(db: D1Database, rows: { id: string; body: string }[]) {
-  const candidates = new Map(rows.map((r) => [r.id, [...r.body.matchAll(IMAGE_ATTACHMENT)].map((m) => m[1]!)]));
-  const ids = [...new Set([...candidates.values()].flat())];
-  const covers = new Map<string, string>();
-  if (ids.length === 0) return covers;
-  const { results } = await db
-    .prepare(`SELECT id, article_id FROM attachments WHERE content_type LIKE 'image/%' AND id IN (SELECT value FROM json_each(?))`)
-    .bind(JSON.stringify(ids))
-    .all<{ id: string; article_id: string | null }>();
-  const owner = new Map(results.map((r) => [r.id, r.article_id]));
-  for (const [articleId, list] of candidates) {
-    const first = list.find((id) => owner.get(id) === articleId);
-    if (first) covers.set(articleId, first);
-  }
-  return covers;
-}
 
 articles.get("/tags", async (c) => {
   const { results } = await c.env.DB.prepare(
@@ -241,7 +231,7 @@ articles.post("/", async (c) => {
       `INSERT INTO articles (id, title, title_key, body, version, revision_id, created_by, updated_by, created_at, updated_at)
        VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
     ).bind(id, input.title, key, input.body, revisionId, userId, userId, now, now),
-    ...writeStatements(c.env.DB, id, revisionId, 1, input, "create", userId, now),
+    // 下書き添付は、一覧に出す画像を選ぶ（writeStatements）より先にひもづける
     ...(attachmentIds.length > 0
       ? [
           c.env.DB.prepare(
@@ -250,6 +240,7 @@ articles.post("/", async (c) => {
           ).bind(id, userId, ...attachmentIds),
         ]
       : []),
+    ...writeStatements(c.env.DB, id, revisionId, 1, input, "create", userId, now),
   ]);
   return c.json({ article: await loadArticle(c.env.DB, id) }, 201);
 });
