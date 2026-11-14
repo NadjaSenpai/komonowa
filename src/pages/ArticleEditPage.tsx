@@ -203,7 +203,7 @@ export function ArticleEditPage() {
       <div className="editor-bar">
       <div className="tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "edit"} className={tab === "edit" ? "active" : ""} onClick={() => setTab("edit")}>
-          Markdown
+          本文を編集
         </button>
         <button type="button" role="tab" aria-selected={tab === "preview"} className={tab === "preview" ? "active" : ""} onClick={() => setTab("preview")}>
           プレビュー
@@ -262,7 +262,8 @@ export function ArticleEditPage() {
         </div>
       )}
       {error && !conflict && <p className="error" role="alert">{error}</p>}
-      <div className="actions">
+      <div className="actions editor-savebar">
+        <span className="save-state" role="status">{saving ? "保存中…" : dirty ? "未保存の変更" : "変更はありません"}</span>
         <button type="submit" disabled={saving || uploading > 0 || Boolean(conflict)}>{saving ? "保存中…" : "保存"}</button>
         <button type="button" className="secondary" onClick={() => navigate(id ? `/articles/${id}` : "/")}>キャンセル</button>
       </div>

@@ -29,6 +29,7 @@ export function LoginPage() {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
@@ -69,12 +70,18 @@ export function LoginPage() {
         </label>
         <label>
           パスワード
-          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <span className="password-field">
+            <input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <button type="button" className="secondary" aria-controls="login-password" aria-label={showPassword ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? "隠す" : "表示"}</button>
+          </span>
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         <button type="submit" disabled={busy}>ログイン</button>
       </form>
-      <p className="muted small">アカウントは管理者からの招待で作成します。パスワードを忘れた場合は管理者に再設定リンクの発行を依頼してください。</p>
+      <div className="auth-help small">
+        <p><strong>登録について</strong><br />アカウントは管理者からの招待で作成します。</p>
+        <p><strong>パスワードを忘れた場合</strong><br />管理者に再設定リンクの発行を依頼してください。</p>
+      </div>
     </AuthCard>
   );
 }

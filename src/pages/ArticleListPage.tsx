@@ -1,9 +1,8 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate } from "../api";
 import { Byline } from "../Avatar";
 import { markdownToText } from "../markdown";
-import { tagWeight } from "../tagWeight";
 
 interface ListItem {
   id: string;
@@ -60,10 +59,6 @@ export function ArticleListPage() {
     setParams(p);
   }
 
-  const counts = tags.map((t) => t.count);
-  const minCount = Math.min(...counts);
-  const maxCount = Math.max(...counts);
-
   function toggleTag(name: string) {
     update({ tags: selected.includes(name) ? selected.filter((t) => t !== name) : [...selected, name] });
   }
@@ -75,27 +70,7 @@ export function ArticleListPage() {
 
   return (
     <div className="list-layout">
-      <aside className="sidebar">
-        <h2>タグ</h2>
-        <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
-        <div className="tags tag-cloud">
-          {tags.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={selected.includes(t.name) ? "tag active" : "tag"}
-              style={{ "--w": tagWeight(t.count, minCount, maxCount).toFixed(2) } as CSSProperties}
-              aria-pressed={selected.includes(t.name)}
-              aria-label={`${t.name}（${t.count}件）`}
-              onClick={() => toggleTag(t.name)}
-            >
-              {t.name}<span className="count" aria-hidden="true">{t.count}</span>
-            </button>
-          ))}
-          {tags.length === 0 && <p className="muted small">タグはまだありません</p>}
-        </div>
-      </aside>
-      <section>
+      <div className="list-controls">
         <div className="list-heading">
           <h1>記事</h1>
         </div>
@@ -104,11 +79,38 @@ export function ArticleListPage() {
           <button type="submit" className="secondary">検索</button>
         </form>
         {(q || selected.length > 0) && (
-          <p className="small">
-            {q && <>「{q}」</>} {selected.map((t) => `#${t}`).join(" ")} の絞り込み中{" "}
-            <button type="button" className="link" onClick={() => setParams(new URLSearchParams())}>解除</button>
-          </p>
+          <div className="active-filters" aria-label="絞り込み条件">
+            <span className="small muted">絞り込み中</span>
+            {q && <span className="small">「{q}」</span>}
+            {selected.map((t) => (
+              <button key={t} type="button" className="filter-chip" aria-label={`タグ「${t}」の絞り込みを解除`} onClick={() => toggleTag(t)}>
+                <span>#{t}</span><span aria-hidden="true">×</span>
+              </button>
+            ))}
+            <button type="button" className="link" onClick={() => setParams(new URLSearchParams())}>すべて解除</button>
+          </div>
         )}
+      </div>
+      <aside className="sidebar">
+        <h2>タグで絞り込み</h2>
+        <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
+        <div className="tag-scroll"><div className="tags tag-cloud" tabIndex={0} aria-label="タグで絞り込み">
+          {tags.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={selected.includes(t.name) ? "tag active" : "tag"}
+              aria-pressed={selected.includes(t.name)}
+              aria-label={`${t.name}（${t.count}件）`}
+              onClick={() => toggleTag(t.name)}
+            >
+              {t.name}<span className="count" aria-hidden="true">{t.count}</span>
+            </button>
+          ))}
+          {tags.length === 0 && <p className="muted small">タグはまだありません</p>}
+        </div></div>
+      </aside>
+      <section aria-label="記事一覧">
         {error && <p className="error">{error}</p>}
         {items === null && !error && <p className="muted">読み込み中…</p>}
         {items?.length === 0 &&
@@ -131,13 +133,17 @@ export function ArticleListPage() {
             <li key={a.id}>
               <Link to={`/articles/${a.id}`} className="title">{a.title}</Link>
               <p className="excerpt">{markdownToText(a.excerpt).slice(0, 120)}</p>
-              <p className="meta">
+              <div className="list-item-meta">
+                <div className="tags article-tags">
                 {a.tags.map((t) => (
                   <button key={t} type="button" className="tag small" onClick={() => toggleTag(t)}>#{t}</button>
                 ))}
-                <Byline userId={a.updated_by} name={a.updated_by_name} avatarId={a.updated_by_avatar} />
-                <span className="meta-item">{formatDate(a.updated_at)}</span>
-              </p>
+                </div>
+                <p className="meta article-update">
+                  <Byline userId={a.updated_by} name={a.updated_by_name} avatarId={a.updated_by_avatar} />
+                  <span className="meta-item">{formatDate(a.updated_at)}</span>
+                </p>
+              </div>
             </li>
           ))}
         </ul>
