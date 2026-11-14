@@ -6,6 +6,7 @@ import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 import { ACCEPT, uploadAttachment } from "../upload";
 import { anyTaskChecked, clearTaskChecks, prepareTaskBoxes, toggleTaskBox } from "../taskChecks";
+import { buildToc, type TocItem } from "../toc";
 import { useInternalLinks } from "../useInternalLinks";
 import { titleKey } from "../../shared/wikilinks";
 
@@ -48,7 +49,30 @@ export function ArticleViewPage() {
   }, [id]);
 
   useEffect(load, [load]);
-  const html = useMemo(() => (article ? markMissingLinks(renderMarkdown(article.body), links) : ""), [article, links]);
+  const { html, toc } = useMemo(
+    () => (article ? buildToc(markMissingLinks(renderMarkdown(article.body), links)) : { html: "", toc: [] as TocItem[] }),
+    [article, links],
+  );
+  // 見出しが2つ以上あるときだけ目次を出す
+  const tocLinks =
+    toc.length >= 2 ? (
+      <ol className="toc-list">
+        {toc.map((t) => (
+          <li key={t.id} className={`toc-level-${t.level}`}>
+            <a
+              href={`#${t.id}`}
+              onClick={(e) => {
+                // ルーターに URL を触らせず、見出しまでスクロールするだけにする
+                e.preventDefault();
+                document.getElementById(t.id)?.scrollIntoView();
+              }}
+            >
+              {t.text}
+            </a>
+          </li>
+        ))}
+      </ol>
+    ) : null;
 
   // チェックリスト：描画し直すたびに、このブラウザに覚えている付け外しを当て直す
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -123,6 +147,8 @@ export function ArticleViewPage() {
 
   return (
     <article className="article-page">
+      <div className="article-layout">
+      <div className="article-main">
       <div className="article-head">
         <h1>{article.title}</h1>
         <div className="actions">
@@ -147,6 +173,12 @@ export function ArticleViewPage() {
         )}
         <span className="meta-item">第{article.version}版</span>
       </p>
+      {tocLinks && (
+        <details className="toc-inline">
+          <summary>目次</summary>
+          {tocLinks}
+        </details>
+      )}
       <div
         ref={bodyRef}
         className="markdown article-body"
@@ -158,6 +190,16 @@ export function ArticleViewPage() {
         <p className="task-actions">
           <button type="button" className="link small" onClick={clearChecks}>チェックをすべて外す</button>
         </p>
+      )}
+      </div>
+
+      {/* 広い画面では本文の右に並び、狭い画面では本文の下に続く */}
+      <aside className="article-aside">
+      {tocLinks && (
+        <nav className="toc-side" aria-label="目次">
+          <h2>目次</h2>
+          {tocLinks}
+        </nav>
       )}
 
       {backlinks.length > 0 && (
@@ -196,6 +238,8 @@ export function ArticleViewPage() {
         </label>
         {uploadError && <p className="error" role="alert">{uploadError}</p>}
       </section>
+      </aside>
+      </div>
     </article>
   );
 }

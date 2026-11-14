@@ -100,7 +100,13 @@ button.link:hover { background: none; text-decoration: underline; }
 .card form + p { margin: var(--space-md) 0 0; }
 
 /* ---------- 一覧 ---------- */
-.list-layout { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: var(--space-2xl); }
+/* 広い画面では記事画面と同じ「本文 760px ＋ 右欄 270px」。タグは HTML では一覧の前（狭い画面では上）に置き、広い画面でだけ右へ */
+.list-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-lg); }
+@media (min-width: 1000px) {
+  .list-layout { grid-template-columns: minmax(0, 760px) minmax(0, 270px); gap: var(--space-2xl); }
+  .list-layout > .sidebar { grid-column: 2; grid-row: 1; }
+  .list-layout > section { grid-column: 1; grid-row: 1; }
+}
 .list-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .list-heading h1 { margin: 0; }
 .sidebar { padding-top: var(--space-2xs); }
@@ -170,11 +176,33 @@ button.link:hover { background: none; text-decoration: underline; }
 
 /* ---------- 記事 ---------- */
 .article-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); flex-wrap: wrap; }
-/* 読みやすい幅に抑えるが、左端はほかの画面と同じ線にそろえる（中央寄せにしない） */
-.article-page { max-width: 760px; margin: 0; }
+/* 左端はほかの画面と同じ線にそろえる（中央寄せにしない）。広い画面では本文 760px の右に目次・被リンク・添付の欄 */
+.article-page { margin: 0; }
+.article-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
 .article-page .article-head { margin-bottom: var(--space-sm); }
 .article-page h1 { font-size: var(--text-3xl); margin: 0; }
-.article-page > .meta { margin-bottom: var(--space-xl); padding-bottom: var(--space-lg); border-bottom: 1px solid var(--color-rule); }
+.article-main > .meta { margin-bottom: var(--space-xl); padding-bottom: var(--space-lg); border-bottom: 1px solid var(--color-rule); }
+/* 目次：狭い画面では本文の上に畳んで、広い画面では右欄に */
+.toc-list { list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); line-height: 1.6; }
+.toc-list li { margin: var(--space-2xs) 0; }
+.toc-list a { color: var(--color-ink-2); text-decoration: none; }
+.toc-list a:hover { color: var(--color-accent); text-decoration: underline; }
+.toc-list .toc-level-3 { padding-inline-start: var(--space-md); }
+.toc-inline { margin-bottom: var(--space-lg); padding: var(--space-xs) var(--space-md); border: 1px solid var(--color-rule); border-radius: var(--radius-control); }
+.toc-inline summary { cursor: pointer; font-size: var(--text-sm); color: var(--color-ink-2); }
+.toc-inline[open] summary { margin-bottom: var(--space-xs); }
+.toc-side h2 { margin-top: 0; font-size: var(--text-md); }
+@media (max-width: 999.98px) {
+  .toc-side { display: none; }
+}
+@media (min-width: 1000px) {
+  .article-layout { grid-template-columns: minmax(0, 760px) minmax(0, 270px); gap: var(--space-2xl); align-items: start; }
+  /* スクロールしても画面についてくる。欄が長いときは欄の中だけスクロールする */
+  .article-aside { position: sticky; top: var(--space-lg); max-height: calc(100dvh - 2 * var(--space-lg)); overflow-y: auto; }
+  .article-aside > :first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .article-page .article-aside > :is(.backlinks, .attachments) { margin-top: var(--space-lg); }
+  .toc-inline { display: none; }
+}
 /* 本文はカードに入れず、紙の上に直接組む */
 .markdown.article-body { background: none; border: none; border-radius: 0; padding: 0; font-size: var(--text-md); line-height: 1.85; }
 .article-body > :first-child { margin-top: 0; }
