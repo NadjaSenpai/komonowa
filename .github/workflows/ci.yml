@@ -21,3 +21,31 @@ jobs:
       - run: npm ci
       # 整形とリント、型検査、テスト、本番ビルド
       - run: npm run check
+
+  # main に入った変更を本番に出す。check が通ったときだけ動く
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # 前のデプロイが終わってから次を始める（途中で止めない）
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://komonowa.nadja.app
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # 新しいコードが新しい列を読むので、先にマイグレーションを適用する
+      - run: npm run db:migrate:remote
+      - run: npm run build
+      - run: npx wrangler deploy
