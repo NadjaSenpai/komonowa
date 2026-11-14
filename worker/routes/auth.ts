@@ -3,7 +3,10 @@ import { getCookie } from "hono/cookie";
 import { getDummyHash, hashPassword, safeStringEqual, sha256, verifyPassword } from "../crypto";
 import type { AppEnv } from "../env";
 import { email, fail, password, readJson, str } from "../http";
+import { mailer } from "../mail";
+import { emailChangedNotice } from "../mailTemplates";
 import { SESSION_COOKIE, clearSessionCookie, createSession, requireAuth, revokeUserSessions } from "../session";
+import { EMAIL_TAKEN } from "./profile";
 
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 10;
@@ -150,6 +153,56 @@ auth.post("/reset/accept", async (c) => {
   await c.env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?").bind(hash, Date.now(), user.id).run();
   await revokeUserSessions(c.env.DB, user.id);
   return c.json({ ok: true });
+});
+
+const EMAIL_LINK_GONE = "リンクが無効か期限切れです。もう一度アカウント画面から申し込んでください";
+
+/**
+ * メールアドレスの変更を確定する（申し込みは profile.ts）。新しいアドレスに届いたリンクで来るので、ログインは不要。
+ * まだ使っていない再設定リンク（古いアドレスに届いたもの）は無効にし、古いアドレスにお知らせを送る
+ */
+auth.post("/email/confirm", async (c) => {
+  const body = await readJson(c);
+  const token = body.token;
+  if (typeof token !== "string" || token.length < 20 || token.length > 100) fail(400, "リンクが正しくありません");
+  const tokenHash = await sha256(token);
+  const now = Date.now();
+  const row = await c.env.DB.prepare(
+    `SELECT e.user_id, e.new_email, u.email AS old_email FROM email_changes e JOIN users u ON u.id = e.user_id
+      WHERE e.token_hash = ? AND e.used_at IS NULL AND e.revoked_at IS NULL AND e.expires_at > ? AND u.status = 'active'`,
+  )
+    .bind(tokenHash, now)
+    .first<{ user_id: string; new_email: string; old_email: string }>();
+  if (!row) fail(410, EMAIL_LINK_GONE);
+  if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND id <> ?").bind(row.new_email, row.user_id).first()) {
+    fail(409, EMAIL_TAKEN);
+  }
+  // 同時に使われた場合は片方だけ成功する
+  const used = await c.env.DB.prepare("UPDATE email_changes SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND revoked_at IS NULL")
+    .bind(now, tokenHash)
+    .run();
+  if (used.meta.changes === 0) fail(410, EMAIL_LINK_GONE);
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE users SET email = ?, updated_at = ? WHERE id = ?").bind(row.new_email, now, row.user_id),
+      c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(
+        now,
+        row.user_id,
+      ),
+      c.env.DB.prepare("UPDATE email_changes SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, row.user_id),
+    ]);
+  } catch (err) {
+    // 確かめた直後にほかの人が同じアドレスで登録した
+    if (err instanceof Error && err.message.includes("UNIQUE")) fail(409, EMAIL_TAKEN);
+    throw err;
+  }
+  // お知らせは届かなくても変更は取り消さない
+  try {
+    await mailer.send(c.env, emailChangedNotice({ to: row.old_email, newEmail: row.new_email }));
+  } catch (err) {
+    console.error("email change notice failed", (err as { code?: string }).code ?? "", err);
+  }
+  return c.json({ email: row.new_email });
 });
 
 /** ログイン中の利用者が自分のパスワードを変える */

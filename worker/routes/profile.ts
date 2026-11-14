@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { fail, readJson, str } from "../http";
+import { randomToken, sha256, verifyPassword } from "../crypto";
+import { email, fail, readJson, str } from "../http";
+import { sendOrFail } from "../mail";
+import { emailChangeMail } from "../mailTemplates";
 import { requireAuth } from "../session";
 import { contentMatches } from "./attachments";
 
@@ -31,6 +34,40 @@ profile.patch("/profile", async (c) => {
   const name = str(body, "name", { max: 50, label: "表示名" });
   await c.env.DB.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?").bind(name, Date.now(), c.var.user.id).run();
   return c.json({ user: { ...c.var.user, name } });
+});
+
+export const EMAIL_TAKEN = "このメールアドレスはすでに使われています";
+
+/**
+ * メールアドレスの変更を申し込む。新しいアドレスに確認メールを送り、リンク（/email#トークン）で確定する（auth.ts）。
+ * 管理者がほかの人のアドレスを変える手段は作らない（所有者の再設定メールを横取りできてしまうため）
+ */
+profile.post("/email", async (c) => {
+  const body = await readJson(c);
+  const next = email(body);
+  const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
+  const userId = c.var.user.id;
+  const row = await c.env.DB.prepare("SELECT email, password_hash FROM users WHERE id = ?").bind(userId).first<{ email: string; password_hash: string }>();
+  if (!row || !(await verifyPassword(current, row.password_hash))) fail(403, "現在のパスワードが正しくありません");
+  if (row.email.toLowerCase() === next) fail(400, "今のメールアドレスと同じです");
+  if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(next).first()) fail(409, EMAIL_TAKEN);
+
+  const token = randomToken();
+  const now = Date.now();
+  const expires = now + 24 * 60 * 60 * 1000;
+  // 先に送り、送れたときだけ記録する（失敗しても前の申し込みのリンクはそのまま使える）
+  await sendOrFail(c.env, emailChangeMail({ to: next, url: `${new URL(c.req.url).origin}/email#${token}`, expiresAt: expires }));
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE email_changes SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, userId),
+    c.env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, new_email, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").bind(
+      await sha256(token),
+      userId,
+      next,
+      expires,
+      now,
+    ),
+  ]);
+  return c.json({ expiresAt: expires }, 201);
 });
 
 profile.put("/avatar", async (c) => {
