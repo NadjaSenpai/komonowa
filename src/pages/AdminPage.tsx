@@ -28,6 +28,7 @@ interface SharedItem {
   title: string;
   created_at: number;
   created_by_name: string;
+  has_passcode: boolean;
 }
 
 interface Tag {
@@ -267,6 +268,7 @@ export function AdminPage() {
                 <tr key={sh.article_id}>
                   <td><Link to={`/articles/${sh.article_id}`}>{sh.title}</Link></td>
                   <td>{formatDate(sh.created_at)} {sh.created_by_name} が共有</td>
+                  <td>{sh.has_passcode ? "パスワードあり" : ""}</td>
                   <td>
                     <div className="actions">
                       <button

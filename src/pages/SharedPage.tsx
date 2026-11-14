@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useParams } from "react-router";
-import { api, errorMessage, formatDate } from "../api";
+import { ApiError, api, errorMessage, formatDate } from "../api";
 import { sharedHtml } from "../share";
 
 interface SharedArticle {
@@ -9,23 +9,52 @@ interface SharedArticle {
   updated_at: number;
 }
 
-/** 外部共有された記事（/s/:token）。ログイン不要で、読むだけ */
+/** 外部共有された記事（/s/:token）。ログイン不要で、読むだけ。パスワード付きなら先に入れてもらう */
 export function SharedPage() {
   const { token = "" } = useParams();
   const [article, setArticle] = useState<SharedArticle | null>(null);
+  const [locked, setLocked] = useState(false);
   const [error, setError] = useState("");
+  const [passcode, setPasscode] = useState("");
+  const [passError, setPassError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const path = `/share/${encodeURIComponent(token)}`;
 
-  useEffect(() => {
-    setArticle(null);
+  const load = useCallback(() => {
     setError("");
     api
-      .get<{ article: SharedArticle }>(`/share/${encodeURIComponent(token)}`)
+      .get<{ article: SharedArticle }>(path)
       .then((r) => {
+        setLocked(false);
         setArticle(r.article);
         document.title = `${r.article.title} - komonowa`;
       })
-      .catch((err) => setError(errorMessage(err)));
-  }, [token]);
+      .catch((err) => {
+        if (err instanceof ApiError && err.data.needsPasscode) setLocked(true);
+        else setError(errorMessage(err));
+      });
+  }, [path]);
+
+  useEffect(() => {
+    setArticle(null);
+    setLocked(false);
+    load();
+  }, [load]);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setPassError("");
+    setBusy(true);
+    try {
+      await api.post(`${path}/unlock`, { passcode });
+      setPasscode("");
+      load();
+    } catch (err) {
+      setPassError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const html = useMemo(() => (article ? sharedHtml(article.body, token) : ""), [article, token]);
 
@@ -33,7 +62,27 @@ export function SharedPage() {
     <div className="shared">
       <p className="shared-label small">komonowa で共有された記事</p>
       {error && <p className="error">{error}</p>}
-      {!error && !article && <p className="muted">読み込み中…</p>}
+      {!error && !article && !locked && <p className="muted">読み込み中…</p>}
+      {locked && (
+        <form onSubmit={submit} className="stack shared-lock">
+          <p>この記事はパスワードで守られています。共有した人から聞いた6桁の数字を入れてください。</p>
+          <label>
+            パスワード
+            <input
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="off"
+              pattern="\d{6}"
+              maxLength={6}
+              required
+              autoFocus
+            />
+          </label>
+          {passError && <p className="error" role="alert">{passError}</p>}
+          <button type="submit" disabled={busy || passcode.length !== 6}>開く</button>
+        </form>
+      )}
       {article && (
         <article className="article-page">
           <h1>{article.title}</h1>

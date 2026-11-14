@@ -3,6 +3,8 @@ import { api, errorMessage, formatDate } from "./api";
 
 export interface Share {
   url: string;
+  /** 6 桁の合言葉。null ならパスワードなし */
+  passcode: string | null;
   created_at: number;
   created_by_name: string;
 }
@@ -36,6 +38,15 @@ export function SharePanel({ articleId, share, onChange }: { articleId: string; 
     });
   };
 
+  const lock = (again: boolean) => {
+    if (again && !confirm("パスワードを作り直しますか？前のパスワードで見ていた人も入れ直しになります。")) return;
+    void run(async () => onChange((await api.post<{ share: Share }>(`/articles/${articleId}/share/passcode`)).share));
+  };
+  const unlockAll = () => {
+    if (!confirm("パスワードを外しますか？URL を知っている人は誰でも読めるようになります。")) return;
+    void run(async () => onChange((await api.del<{ share: Share }>(`/articles/${articleId}/share/passcode`)).share));
+  };
+
   async function copy() {
     if (!share) return;
     try {
@@ -59,6 +70,24 @@ export function SharePanel({ articleId, share, onChange }: { articleId: string; 
           <p className="muted small">
             {share.created_by_name} さんが {formatDate(share.created_at)} に共有を始めました。
           </p>
+          {share.passcode ? (
+            <div className="share-passcode">
+              <p className="small">
+                パスワード：<strong className="passcode">{share.passcode}</strong>
+                <br />
+                <span className="muted">URL とは別に伝えてください。入れた人だけが読めます。</span>
+              </p>
+              <div className="actions">
+                <button type="button" className="secondary small" disabled={busy} onClick={() => lock(true)}>作り直す</button>
+                <button type="button" className="secondary small" disabled={busy} onClick={unlockAll}>外す</button>
+              </div>
+            </div>
+          ) : (
+            <div className="share-passcode">
+              <p className="small muted">パスワードを付けると、URL を知っていても、パスワード（6桁の数字）を入れた人しか読めなくなります。</p>
+              <button type="button" className="secondary small" disabled={busy} onClick={() => lock(false)}>パスワードを付ける</button>
+            </div>
+          )}
           <button type="button" className="danger small" disabled={busy} onClick={stop}>共有を止める</button>
         </>
       ) : (
