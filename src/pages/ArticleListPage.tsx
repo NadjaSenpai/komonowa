@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate } from "../api";
+import { Byline } from "../Avatar";
 import { markdownToText } from "../markdown";
 import { tagWeight } from "../tagWeight";
 
@@ -9,7 +10,9 @@ interface ListItem {
   title: string;
   excerpt: string;
   updated_at: number;
+  updated_by: string;
   updated_by_name: string;
+  updated_by_avatar: string | null;
   tags: string[];
 }
 
@@ -122,7 +125,8 @@ export function ArticleListPage() {
                 {a.tags.map((t) => (
                   <button key={t} type="button" className="tag small" onClick={() => toggleTag(t)}>#{t}</button>
                 ))}
-                <span className="meta-item">{formatDate(a.updated_at)} · {a.updated_by_name}</span>
+                <Byline userId={a.updated_by} name={a.updated_by_name} avatarId={a.updated_by_avatar} />
+                <span className="meta-item">{formatDate(a.updated_at)}</span>
               </p>
             </li>
           ))}

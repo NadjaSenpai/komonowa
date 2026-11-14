@@ -42,6 +42,7 @@ interface SessionRow {
   email: string;
   name: string;
   role: Role;
+  avatar_id: string | null;
 }
 
 /** 有効なセッションと有効な利用者がそろっている場合だけ通す */
@@ -51,7 +52,7 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
   const idHash = await sha256(token);
   const now = Date.now();
   const row = await c.env.DB.prepare(
-    `SELECT s.expires_at, u.id, u.email, u.name, u.role
+    `SELECT s.expires_at, u.id, u.email, u.name, u.role, u.avatar_id
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.id_hash = ? AND s.expires_at > ? AND u.status = 'active'`,
   )
@@ -66,7 +67,7 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
     await c.env.DB.prepare("UPDATE sessions SET expires_at = ? WHERE id_hash = ?").bind(expires, idHash).run();
     writeCookie(c, token, expires);
   }
-  const user: SessionUser = { id: row.id, email: row.email, name: row.name, role: row.role };
+  const user: SessionUser = { id: row.id, email: row.email, name: row.name, role: row.role, avatar_id: row.avatar_id };
   c.set("user", user);
   c.set("sessionHash", idHash);
   await next();

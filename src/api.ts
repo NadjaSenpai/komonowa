@@ -38,6 +38,7 @@ export interface User {
   email: string;
   name: string;
   role: "admin" | "member";
+  avatar_id: string | null;
 }
 
 export interface Article {
@@ -48,8 +49,12 @@ export interface Article {
   tags: string[];
   created_at: number;
   updated_at: number;
+  created_by: string;
   created_by_name: string;
+  created_by_avatar: string | null;
+  updated_by: string;
   updated_by_name: string;
+  updated_by_avatar: string | null;
 }
 
 export interface Attachment {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, errorMessage, formatDate, type Article } from "../api";
+import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 
 interface RevisionSummary {
@@ -8,7 +9,9 @@ interface RevisionSummary {
   title: string;
   action: "create" | "edit" | "restore";
   created_at: number;
+  edited_by: string;
   edited_by_name: string;
+  edited_by_avatar: string | null;
 }
 
 interface Revision extends RevisionSummary {
@@ -84,7 +87,7 @@ export function HistoryPage() {
                 <td>{r.version}</td>
                 <td>{ACTIONS[r.action]}</td>
                 <td>{formatDate(r.created_at)}</td>
-                <td>{r.edited_by_name}</td>
+                <td><Byline userId={r.edited_by} name={r.edited_by_name} avatarId={r.edited_by_avatar} /></td>
                 <td>{r.title}</td>
                 <td>
                   <div className="actions">

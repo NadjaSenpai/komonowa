@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAuth } from "../App";
 import { api, errorMessage, formatDate, formatSize, type Article, type Attachment } from "../api";
+import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -94,8 +95,16 @@ export function ArticleViewPage() {
         {article.tags.map((t) => (
           <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>#{t}</Link>
         ))}
-        <span className="meta-item">{formatDate(article.updated_at)} 更新（{article.updated_by_name}）</span>
-        <span className="meta-item">作成 {article.created_by_name}</span>
+        <span className="meta-item">
+          <Byline userId={article.updated_by} name={article.updated_by_name} avatarId={article.updated_by_avatar} />
+          {formatDate(article.updated_at)} 更新
+        </span>
+        {article.created_by !== article.updated_by && (
+          <span className="meta-item">
+            作成
+            <Byline userId={article.created_by} name={article.created_by_name} avatarId={article.created_by_avatar} />
+          </span>
+        )}
         <span className="meta-item">第{article.version}版</span>
       </p>
       <div className="markdown article-body" dangerouslySetInnerHTML={{ __html: html }} />

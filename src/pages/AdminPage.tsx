@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../App";
 import { api, errorMessage, formatDate } from "../api";
+import { Byline } from "../Avatar";
 
 interface AdminUser {
   id: string;
@@ -8,6 +9,7 @@ interface AdminUser {
   name: string;
   role: "admin" | "member";
   status: "active" | "disabled";
+  avatar_id: string | null;
   created_at: number;
 }
 
@@ -168,7 +170,11 @@ export function AdminPage() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className={u.status === "disabled" ? "muted" : ""}>
-                <td>{u.name}{u.id === user?.id && <span className="muted small">（自分）</span>}</td>
+                <td>
+                  <Byline userId={u.id} name={u.name} avatarId={u.avatar_id}>
+                    {u.name}{u.id === user?.id && <span className="muted small">（自分）</span>}
+                  </Byline>
+                </td>
                 <td>{u.email}</td>
                 <td>
                   <select

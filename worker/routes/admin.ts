@@ -12,7 +12,7 @@ admin.use("*", requireAuth, requireAdmin);
 
 admin.get("/users", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, email, name, role, status, created_at FROM users ORDER BY created_at",
+    "SELECT id, email, name, role, status, avatar_id, created_at FROM users ORDER BY created_at",
   ).all();
   return c.json({ users: results });
 });

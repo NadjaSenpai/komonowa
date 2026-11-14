@@ -5,7 +5,7 @@ Wiki のデータは2か所にあります。両方をそろえて保管・復�
 | 保存先 | 内容 |
 | --- | --- |
 | D1 `wiki-db` | 利用者（パスワードハッシュ）、セッション、招待、記事、全履歴、タグ、添付のメタデータ |
-| R2 `wiki-files` | 添付ファイル本体（キー: `attachments/<記事ID>/<添付ID>`） |
+| R2 `wiki-files` | 添付ファイル本体（キー: `attachments/<記事ID>/<添付ID>`）、アイコン画像（キー: `avatars/<利用者ID>/<アイコンID>`） |
 
 バックアップには全記事と添付、パスワードハッシュが含まれます。暗号化されたストレージなど、メンバー以外が読めない場所に保管してください。`backups/` は `.gitignore` 済みです。
 
@@ -15,13 +15,13 @@ Wiki のデータは2か所にあります。両方をそろえて保管・復�
 
 ```sh
 npm run backup:remote
-# → backups/<日時>/d1.sql, manifest.json, r2/attachments/...
+# → backups/<日時>/d1.sql, manifest.json, r2/attachments/..., r2/avatars/...
 ```
 
 スクリプト（`scripts/backup.mjs`）は次を順に行います。
 
 1. `wrangler d1 export wiki-db --remote --output d1.sql` でスキーマとデータを SQL として書き出す
-2. D1 の `attachments` テーブルから R2 キーの一覧を取得する
+2. D1 の `attachments` テーブルと `users.avatar_id` から R2 キーの一覧を取得する
 3. 各オブジェクトを `wrangler r2 object get` で取得し、`manifest.json` に一覧を記録する
 
 注意:

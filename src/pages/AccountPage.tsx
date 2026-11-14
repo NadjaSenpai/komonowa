@@ -1,9 +1,93 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../App";
-import { api, errorMessage } from "../api";
+import { api, errorMessage, type User } from "../api";
+import { Avatar } from "../Avatar";
+import { resizeAvatar } from "../userAvatar";
 
-export function AccountPage() {
-  const { user } = useAuth();
+function ProfileSection() {
+  const { user, setUser } = useAuth();
+  const [name, setName] = useState(user?.name ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
+  if (!user) return null;
+
+  async function run(action: () => Promise<{ user: User }>, done: string) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const r = await action();
+      setUser(r.user);
+      setMessage(done);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function saveName(e: FormEvent) {
+    e.preventDefault();
+    void run(async () => {
+      const r = await api.patch<{ user: User }>("/auth/profile", { name });
+      setName(r.user.name);
+      return r;
+    }, "表示名を変更しました。過去の記事や履歴の表示も新しい名前になります。");
+  }
+
+  function pickImage(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    void run(async () => {
+      const blob = await resizeAvatar(file);
+      const form = new FormData();
+      form.append("file", blob, blob.type === "image/webp" ? "avatar.webp" : "avatar.png");
+      return api.put<{ user: User }>("/auth/avatar", form);
+    }, "アイコンを変更しました。");
+  }
+
+  return (
+    <section className="profile">
+      <h2>プロフィール</h2>
+      <div className="profile-avatar">
+        <Avatar userId={user.id} name={name || user.name} avatarId={user.avatar_id} size="l" />
+        <div className="stack">
+          <div className="actions">
+            <button type="button" className="secondary" disabled={busy} onClick={() => fileInput.current?.click()}>
+              {user.avatar_id ? "画像を変更" : "画像を選ぶ"}
+            </button>
+            {user.avatar_id && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => void run(() => api.del<{ user: User }>("/auth/avatar"), "アイコンを外しました。頭文字の表示に戻ります。")}
+              >
+                画像を外す
+              </button>
+            )}
+          </div>
+          <p className="hint">PNG・JPEG・WebP。中央を正方形に切り抜いて縮小します。画像がないときは名前の頭文字を表示します。</p>
+        </div>
+        <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={pickImage} />
+      </div>
+      <form onSubmit={saveName} className="stack">
+        <label>
+          表示名（50文字まで）
+          <input value={name} maxLength={50} autoComplete="nickname" onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <button type="submit" disabled={busy || name.trim() === "" || name.trim() === user.name}>名前を保存</button>
+      </form>
+      {message && <p className="notice" role="status">{message}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
+    </section>
+  );
+}
+
+function PasswordSection() {
   const [currentPassword, setCurrent] = useState("");
   const [newPassword, setNext] = useState("");
   const [message, setMessage] = useState("");
@@ -24,9 +108,7 @@ export function AccountPage() {
   }
 
   return (
-    <div className="narrow">
-      <h1>アカウント</h1>
-      <p>{user?.name}（{user?.email}）· {user?.role === "admin" ? "管理者" : "メンバー"}</p>
+    <section>
       <h2>パスワードの変更</h2>
       <form onSubmit={submit} className="stack">
         <label>
@@ -39,8 +121,22 @@ export function AccountPage() {
         </label>
         {message && <p className="notice">{message}</p>}
         {error && <p className="error" role="alert">{error}</p>}
-        <button type="submit">変更する</button>
+        <button type="submit" className="secondary">パスワードを変更</button>
       </form>
+    </section>
+  );
+}
+
+export function AccountPage() {
+  const { user } = useAuth();
+  return (
+    <div className="narrow">
+      <h1>アカウント</h1>
+      <p className="muted">
+        {user?.email}（{user?.role === "admin" ? "管理者" : "メンバー"}）
+      </p>
+      <ProfileSection />
+      <PasswordSection />
     </div>
   );
 }

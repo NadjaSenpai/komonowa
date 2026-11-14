@@ -36,7 +36,7 @@ auth.post("/setup", async (c) => {
     .run();
   if (result.meta.changes === 0) fail(409, "初期設定はすでに完了しています");
   await createSession(c, id);
-  return c.json({ user: { id, email: addr, name, role: "admin" } }, 201);
+  return c.json({ user: { id, email: addr, name, role: "admin", avatar_id: null } }, 201);
 });
 
 auth.post("/login", async (c) => {
@@ -50,9 +50,9 @@ auth.post("/login", async (c) => {
     .first<number>("n");
   if ((failures ?? 0) >= MAX_FAILURES) fail(429, "ログイン失敗が続いたため一時的にロックしています。15分ほど待ってください");
 
-  const user = await c.env.DB.prepare("SELECT id, email, name, role, status, password_hash FROM users WHERE email = ?")
+  const user = await c.env.DB.prepare("SELECT id, email, name, role, status, password_hash, avatar_id FROM users WHERE email = ?")
     .bind(addr)
-    .first<{ id: string; email: string; name: string; role: string; status: string; password_hash: string }>();
+    .first<{ id: string; email: string; name: string; role: string; status: string; password_hash: string; avatar_id: string | null }>();
   const ok = await verifyPassword(pass, user?.password_hash ?? (await getDummyHash()));
   if (!user || !ok || user.status !== "active") {
     await c.env.DB.batch([
@@ -63,7 +63,7 @@ auth.post("/login", async (c) => {
   }
   await c.env.DB.prepare("DELETE FROM login_failures WHERE email = ?").bind(addr).run();
   await createSession(c, user.id);
-  return c.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  return c.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, avatar_id: user.avatar_id } });
 });
 
 auth.post("/logout", async (c) => {
@@ -129,7 +129,7 @@ auth.post("/invite/accept", async (c) => {
     .bind(id, row.email, name, hash, row.role ?? "member", now, now)
     .run();
   await createSession(c, id);
-  return c.json({ user: { id, email: row.email, name, role: row.role ?? "member" } }, 201);
+  return c.json({ user: { id, email: row.email, name, role: row.role ?? "member", avatar_id: null } }, 201);
 });
 
 auth.post("/reset/check", async (c) => {

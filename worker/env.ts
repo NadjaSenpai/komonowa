@@ -5,6 +5,7 @@ export interface SessionUser {
   email: string;
   name: string;
   role: Role;
+  avatar_id: string | null;
 }
 
 export interface AppEnv {

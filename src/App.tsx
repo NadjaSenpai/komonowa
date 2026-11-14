@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router";
 import { api, type User } from "./api";
+import { Avatar } from "./Avatar";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
 import { ArticleEditPage } from "./pages/ArticleEditPage";
@@ -83,7 +84,12 @@ function Layout({ children }: { children: ReactNode }) {
         <nav>
           <NavLink to="/" end>記事</NavLink>
           {user?.role === "admin" && <NavLink to="/admin">管理</NavLink>}
-          <NavLink to="/account" className="account" title="アカウント設定">{user?.name}</NavLink>
+          {user && (
+            <NavLink to="/account" className="account" title="アカウント設定">
+              <Avatar userId={user.id} name={user.name} avatarId={user.avatar_id} />
+              <span>{user.name}</span>
+            </NavLink>
+          )}
           <button
             type="button"
             className="link"

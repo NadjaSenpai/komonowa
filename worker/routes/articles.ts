@@ -83,15 +83,20 @@ interface ArticleRow {
   tags: string;
   created_at: number;
   updated_at: number;
+  created_by: string;
   created_by_name: string;
+  created_by_avatar: string | null;
+  updated_by: string;
   updated_by_name: string;
+  updated_by_avatar: string | null;
 }
 
 async function loadArticle(db: D1Database, id: string) {
   const row = await db
     .prepare(
       `SELECT a.id, a.title, a.body, a.version, a.created_at, a.updated_at,
-              cu.name AS created_by_name, uu.name AS updated_by_name, ${TAGS_JSON} AS tags
+              a.created_by, cu.name AS created_by_name, cu.avatar_id AS created_by_avatar,
+              a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar, ${TAGS_JSON} AS tags
          FROM articles a JOIN users cu ON cu.id = a.created_by JOIN users uu ON uu.id = a.updated_by
         WHERE a.id = ? AND a.deleted_at IS NULL`,
     )
@@ -122,7 +127,8 @@ articles.get("/", async (c) => {
     params.push(...tags, tags.length);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.updated_at, uu.name AS updated_by_name, ${TAGS_JSON} AS tags
+    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+            ${TAGS_JSON} AS tags
        FROM articles a JOIN users uu ON uu.id = a.updated_by
       WHERE ${where.join(" AND ")}
       ORDER BY a.updated_at DESC LIMIT ? OFFSET ?`,
@@ -219,7 +225,7 @@ articles.get("/:id/revisions", async (c) => {
   const exists = await c.env.DB.prepare("SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL").bind(id).first();
   if (!exists) fail(404, "記事が見つかりません");
   const { results } = await c.env.DB.prepare(
-    `SELECT r.version, r.title, r.action, r.created_at, u.name AS edited_by_name
+    `SELECT r.version, r.title, r.action, r.created_at, r.edited_by, u.name AS edited_by_name, u.avatar_id AS edited_by_avatar
        FROM revisions r JOIN users u ON u.id = r.edited_by WHERE r.article_id = ? ORDER BY r.version DESC`,
   )
     .bind(id)
@@ -230,7 +236,7 @@ articles.get("/:id/revisions", async (c) => {
 async function loadRevision(db: D1Database, id: string, version: number) {
   const row = await db
     .prepare(
-      `SELECT r.version, r.title, r.body, r.tags, r.action, r.created_at, u.name AS edited_by_name
+      `SELECT r.version, r.title, r.body, r.tags, r.action, r.created_at, r.edited_by, u.name AS edited_by_name, u.avatar_id AS edited_by_avatar
          FROM revisions r JOIN articles a ON a.id = r.article_id JOIN users u ON u.id = r.edited_by
         WHERE r.article_id = ? AND r.version = ? AND a.deleted_at IS NULL`,
     )

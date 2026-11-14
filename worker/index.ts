@@ -8,6 +8,7 @@ import { admin } from "./routes/admin";
 import { articles } from "./routes/articles";
 import { MAX_FILE_BYTES, attachments } from "./routes/attachments";
 import { auth } from "./routes/auth";
+import { avatars, profile } from "./routes/profile";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -21,6 +22,8 @@ app.use("*", async (c, next) => {
 app.use("*", bodyLimit({ maxSize: MAX_FILE_BYTES + 64 * 1024, onError: (c) => c.json({ error: "ファイルは10MBまでです" }, 413) }));
 
 app.route("/auth", auth);
+app.route("/auth", profile);
+app.route("/avatars", avatars);
 app.route("/admin", admin);
 app.route("/articles", articles);
 app.route("/", attachments);
