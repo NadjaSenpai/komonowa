@@ -130,3 +130,41 @@ describe("添付画像の小さい版", () => {
     expect(await env.FILES.head(`attachments/${old.id}`)).toBeNull();
   });
 });
+
+describe("一覧の cover", () => {
+  async function coverOf(c: Client, id: string) {
+    const { articles } = await json(await c.get("/api/articles"));
+    return articles.find((a: { id: string }) => a.id === id).cover;
+  }
+  const save = (c: Client, id: string, body: string) => c.put(`/api/articles/${id}`, { title: `記事${id.slice(0, 6)}`, body, tags: [], baseVersion: 1 });
+
+  it("本文で最初に出てくる、その記事の画像添付を選ぶ", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const other = await createArticle(client, { title: "ほかの記事" });
+    const foreign = (await json(await upload(client, other.id, PNG, "x.png"))).attachment;
+    const article = await createArticle(client, { title: "写真の記事" });
+    const pdf = (await json(await upload(client, article.id, PDF, "a.pdf"))).attachment;
+    const first = (await json(await upload(client, article.id, PNG, "1.png", THUMB))).attachment;
+    const second = (await json(await upload(client, article.id, PNG, "2.png"))).attachment;
+    const body = [
+      `[資料](${pdf.url})`,
+      `![資料を画像として](${pdf.url})`,
+      `![外](https://example.com/a.png)`,
+      `![よそ](${foreign.url})`,
+      `![一枚目](${first.url})`,
+      `![二枚目](${second.url})`,
+    ].join("\n");
+    expect((await save(client, article.id, body)).status).toBe(200);
+    expect(await coverOf(client, article.id)).toBe(first.id);
+    expect(await coverOf(client, other.id)).toBeNull();
+    const { articles } = await json(await client.get("/api/articles"));
+    expect(articles[0]).not.toHaveProperty("body");
+  });
+
+  it("画像がなければ null", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin, { body: "文字だけ" });
+    expect(await coverOf(admin, article.id)).toBeNull();
+  });
+});
