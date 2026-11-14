@@ -55,6 +55,7 @@ GitHubリポジトリの Settings → Secrets and variables → Actions に次�
 | `B2_SECRET_ACCESS_KEY` | 対応するapplicationKey |
 | `BACKUP_PASSPHRASE` | 暗号化・復号用の十分長いランダムな値。32文字以上・改行なし |
 
+B2の App Keys → Add a New Application Key から、対象バケット専用の Read and Write キーを作成します。Master Application KeyはS3互換APIで使えません。
 B2のキーには対象バケットのファイルを一覧・読み取り・書き込み・削除できる権限が必要です。
 `BACKUP_PASSPHRASE` は、利用者の端末で `openssl rand -base64 32` を実行して作成できます。
 **パスワード管理ツールにも保管してください。GitHub Secretsから元の値を取り出すことはできません。** キーを変更しても既存の暗号文は変わらないので、旧世代の復元には旧パスフレーズが必要です。チャットやリポジトリには貼り付けません。
