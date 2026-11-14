@@ -199,8 +199,9 @@ admin.delete("/trash/:id", async (c) => {
   const { results } = await c.env.DB.prepare("SELECT r2_key, thumb_key FROM attachments WHERE article_id = ?")
     .bind(id)
     .all<{ r2_key: string; thumb_key: string | null }>();
-  await deleteObjects(c.env, results);
+  // 先に D1 から消す。R2 が後で失敗しても、参照されないファイルが残るだけで済む（逆だと、添付の消えた記事が残る）
   await c.env.DB.prepare("DELETE FROM articles WHERE id = ? AND deleted_at IS NOT NULL").bind(id).run();
+  await deleteObjects(c.env, results);
   return c.json({ ok: true });
 });
 
