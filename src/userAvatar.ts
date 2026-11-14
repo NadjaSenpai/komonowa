@@ -20,23 +20,48 @@ export function avatarTone(id: string): number {
 
 export const AVATAR_SIZE = 256;
 
-/** 選んだ画像を中央で正方形に切り抜いて 256px に縮小する。WebP に対応しないブラウザでは PNG */
-export async function resizeAvatar(file: File): Promise<Blob> {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-  } catch {
-    throw new Error("この画像は読み込めませんでした。PNG・JPEG・WebP を選んでください");
-  }
-  const side = Math.min(bitmap.width, bitmap.height);
+export const MAX_ZOOM = 4;
+
+/**
+ * クロッパーの表示状態。枠（一辺 view px）いっぱいに画像の短辺を合わせた倍率を 1 とし、
+ * zoom で拡大、offset で画像の中心を枠の中心からずらす（px、右・下が正）。
+ */
+export interface CropView {
+  width: number;
+  height: number;
+  view: number;
+  zoom: number;
+}
+
+function scaleOf({ width, height, view, zoom }: CropView) {
+  return (view / Math.min(width, height)) * zoom;
+}
+
+/** 枠に余白ができないよう、ずらし量を画像がはみ出している範囲に収める */
+export function clampOffset(v: CropView, offset: { x: number; y: number }) {
+  const s = scaleOf(v);
+  const maxX = Math.max(0, (v.width * s - v.view) / 2);
+  const maxY = Math.max(0, (v.height * s - v.view) / 2);
+  const clamp = (n: number, max: number) => Math.min(max, Math.max(-max, n)) || 0;
+  return { x: clamp(offset.x, maxX), y: clamp(offset.y, maxY) };
+}
+
+/** 枠に見えている範囲を、元画像の座標（px）の正方形で返す */
+export function cropRect(v: CropView, offset: { x: number; y: number }) {
+  const s = scaleOf(v);
+  const size = v.view / s;
+  return { x: (v.width - size) / 2 - offset.x / s, y: (v.height - size) / 2 - offset.y / s, size };
+}
+
+/** 画像の指定範囲を 256px の正方形に描いて返す。WebP に対応しないブラウザでは PNG */
+export async function renderAvatar(image: CanvasImageSource, rect: { x: number; y: number; size: number }): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = AVATAR_SIZE;
   canvas.height = AVATAR_SIZE;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("画像を処理できませんでした");
   ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
-  bitmap.close();
+  ctx.drawImage(image, rect.x, rect.y, rect.size, rect.size, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
   const toBlob = (type: string, quality?: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
   const webp = await toBlob("image/webp", 0.86);
   const blob = webp?.type === "image/webp" ? webp : await toBlob("image/png");

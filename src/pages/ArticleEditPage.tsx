@@ -106,7 +106,7 @@ export function ArticleEditPage() {
       </label>
       <label>
         タグ（カンマ・空白区切り）
-        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="例: 手順, ネットワーク" />
+        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="例: ごはん, おでかけ, 手順" />
       </label>
       <div className="tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "edit"} className={tab === "edit" ? "active" : ""} onClick={() => setTab("edit")}>

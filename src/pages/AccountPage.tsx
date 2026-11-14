@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useAuth } from "../App";
 import { api, errorMessage, type User } from "../api";
 import { Avatar } from "../Avatar";
-import { resizeAvatar } from "../userAvatar";
+import { AvatarCropper } from "../AvatarCropper";
 
 function ProfileSection() {
   const { user, setUser } = useAuth();
@@ -11,6 +11,7 @@ function ProfileSection() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   if (!user) return null;
 
   async function run(action: () => Promise<{ user: User }>, done: string) {
@@ -41,8 +42,14 @@ function ProfileSection() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    setMessage("");
+    setError("");
+    setCropFile(file);
+  }
+
+  function uploadAvatar(blob: Blob) {
+    setCropFile(null);
     void run(async () => {
-      const blob = await resizeAvatar(file);
       const form = new FormData();
       form.append("file", blob, blob.type === "image/webp" ? "avatar.webp" : "avatar.png");
       return api.put<{ user: User }>("/auth/avatar", form);
@@ -70,9 +77,10 @@ function ProfileSection() {
               </button>
             )}
           </div>
-          <p className="hint">PNG・JPEG・WebP。中央を正方形に切り抜いて縮小します。画像がないときは名前の頭文字を表示します。</p>
+          <p className="hint">PNG・JPEG・WebP。選んだあとに表示する範囲を調整できます。画像がないときは名前の頭文字を表示します。</p>
         </div>
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={pickImage} />
+        {cropFile && <AvatarCropper file={cropFile} onCancel={() => setCropFile(null)} onDone={uploadAvatar} />}
       </div>
       <form onSubmit={saveName} className="stack">
         <label>

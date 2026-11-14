@@ -144,7 +144,7 @@ export function InvitePage() {
   }
 
   return (
-    <AuthCard title="チーム Wiki に参加">
+    <AuthCard title="komonowa に参加">
       {email === null ? (
         error ? <p className="error">{error}</p> : <p className="muted">確認中…</p>
       ) : (
