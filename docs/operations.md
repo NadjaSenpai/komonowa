@@ -96,4 +96,10 @@ npm run dev
   npx wrangler d1 execute wiki-db --remote --command "SELECT name, email FROM users WHERE is_owner = 1"  # 確認
   ```
 - **外部共有**: 管理画面の「共有中の記事」で、だれが何を共有しているかを確認して止められる。共有ページは `robots.txt` などでボットに載せないよう伝えているが、行儀のよいボットにしか効かないため、Cloudflare ダッシュボードで nadja.app の **Security → Settings →（Bot traffic で絞り込み）AI Crawler and Agent access policies** を開き、Search・Agent・Training をすべて **Block** にしておく（新しいドメインは既定で Allow）。守りの本体は URL を知られないことなので、URL が漏れたら共有を止めて始め直す（新しい URL になる）
+- **強制退会**: 管理画面の「強制退会」で、その人の名前・メールアドレス・アイコン・パスワードを消し、同じアドレスを招待とメールアドレスの変更先に使えなくする。締め出しを解くときは次のコマンドで（`<アドレス>` は小文字にしたもの。アドレスの SHA-256 を base64url で保存している）
+
+  ```sh
+  HASH=$(printf "%s" "<アドレス>" | openssl dgst -sha256 -binary | basenc --base64url | tr -d "=")
+  npx wrangler d1 execute wiki-db --remote --command "DELETE FROM blocked_emails WHERE email_hash = "
+  ```
 - **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る

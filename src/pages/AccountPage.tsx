@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router";
 import { useAuth } from "../App";
 import { api, errorMessage, type User } from "../api";
 import { Avatar } from "../Avatar";
@@ -182,6 +183,47 @@ function EmailSection() {
   );
 }
 
+/** 退会。名前・メールアドレス・アイコン・パスワードを消す（記事と履歴は「（削除されたユーザー）」として残る） */
+function WithdrawSection() {
+  const { setUser } = useAuth();
+  const navigate = useNavigate();
+  const [currentPassword, setCurrent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!confirm("本当に退会しますか？名前・メールアドレス・アイコン・パスワードが消え、取り消せません。")) return;
+    setError("");
+    setBusy(true);
+    try {
+      await api.post("/auth/withdraw", { currentPassword });
+      setUser(null);
+      navigate("/login", { replace: true });
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2>退会</h2>
+      <p className="muted small">
+        退会すると、名前・メールアドレス・アイコン・パスワードが消えます。書いた記事と履歴は「（削除されたユーザー）」の名前で残ります。取り消せません。所有者は退会できません。
+      </p>
+      <form onSubmit={submit} className="stack">
+        <label>
+          現在のパスワード
+          <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
+        </label>
+        {error && <p className="error" role="alert">{error}</p>}
+        <button type="submit" className="danger" disabled={busy}>{busy ? "処理中…" : "退会する"}</button>
+      </form>
+    </section>
+  );
+}
+
 export function AccountPage() {
   const { user } = useAuth();
   return (
@@ -193,6 +235,7 @@ export function AccountPage() {
       <ProfileSection />
       <EmailSection />
       <PasswordSection />
+      <WithdrawSection />
     </div>
   );
 }

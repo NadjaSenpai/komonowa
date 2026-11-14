@@ -1,5 +1,8 @@
+import { DELETED_NAME } from "../shared/accounts";
 /** アイコン未設定のときに表示する1文字（先頭の書記素。英字は大文字） */
 export function avatarInitial(name: string): string {
+  // 退会した人は無地にする
+  if (name === DELETED_NAME) return "";
   const trimmed = name.trim();
   if (!trimmed) return "?";
   const first = new Intl.Segmenter("ja", { granularity: "grapheme" }).segment(trimmed)[Symbol.iterator]().next().value?.segment ?? "?";

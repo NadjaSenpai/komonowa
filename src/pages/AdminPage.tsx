@@ -4,6 +4,7 @@ import { useAuth } from "../App";
 import { api, errorMessage, formatDate } from "../api";
 import { Byline } from "../Avatar";
 import { inviteStatus, openInvites, type Invite } from "../invites";
+import { DELETED_EMAIL_DOMAIN, DELETED_NAME } from "../../shared/accounts";
 
 interface AdminUser {
   id: string;
@@ -166,7 +167,7 @@ export function AdminPage() {
             <tbody>
               {shownInvites.map((i) => (
                 <tr key={i.id}>
-                  <td>{i.email}</td>
+                  <td>{i.email.endsWith(DELETED_EMAIL_DOMAIN) ? DELETED_NAME : i.email}</td>
                   <td>{i.role === "admin" ? "管理者" : "メンバー"}</td>
                   <td>{inviteStatus(i)}</td>
                   <td>{formatDate(i.expires_at)}</td>
@@ -247,6 +248,19 @@ export function AdminPage() {
                     {u.status === "disabled" && (
                       <button type="button" className="secondary small" onClick={() => run(() => api.patch(`/admin/users/${u.id}`, { status: "active" }))}>
                         再有効化
+                      </button>
+                    )}
+                    {/* abuse する人を外す。名前とアドレスを消し、同じアドレスでは戻れなくする */}
+                    {u.id !== user?.id && !u.is_owner && (
+                      <button
+                        type="button"
+                        className="danger small"
+                        onClick={() =>
+                          confirm(`${u.name} さんを強制退会しますか？名前・メールアドレス・アイコンが消え、同じメールアドレスでは招待できなくなります。記事は「（削除されたユーザー）」の名前で残ります。取り消せません。`) &&
+                          run(() => api.post(`/admin/users/${u.id}/remove`))
+                        }
+                      >
+                        強制退会
                       </button>
                     )}
                   </div>

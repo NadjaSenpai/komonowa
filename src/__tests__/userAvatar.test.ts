@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { AVATAR_TONES, avatarInitial, avatarTone, clampOffset, cropRect } from "../userAvatar";
 
 describe("avatarInitial", () => {
+  it("退会した人は頭文字を出さない（「（」にならないように）", () => {
+    expect(avatarInitial("（削除されたユーザー）")).toBe("");
+  });
+
   it("先頭の1文字を返し、英字は大文字にする", () => {
     expect(avatarInitial("山田 太郎")).toBe("山");
     expect(avatarInitial("nadja")).toBe("N");

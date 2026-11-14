@@ -1,8 +1,7 @@
 import { randomToken, sha256 } from "./crypto";
 import { fail } from "./http";
 
-/** 退会・強制退会した人の表示名。記事・履歴・一覧はこの名前で出る */
-export const DELETED_NAME = "（削除されたユーザー）";
+import { DELETED_EMAIL_DOMAIN, DELETED_NAME } from "../shared/accounts";
 
 const emailHash = (email: string) => sha256(email.trim().toLowerCase());
 
@@ -21,7 +20,7 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
     .first<{ email: string; avatar_id: string | null }>();
   if (!user) fail(404, "利用者が見つかりません");
   const now = Date.now();
-  const placeholder = `deleted-${userId}@deleted.invalid`;
+  const placeholder = `deleted-${userId}${DELETED_EMAIL_DOMAIN}`;
   // 有効な管理者が 0 人にならないよう、条件付き UPDATE で守る
   const res = await env.DB.prepare(
     `UPDATE users SET name = ?1, email = ?2, password_hash = ?3, avatar_id = NULL, avatar_type = NULL,
