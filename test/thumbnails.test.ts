@@ -1,0 +1,132 @@
+import { env } from "cloudflare:test";
+import { describe, expect, it } from "vitest";
+import { Client, adminClient, createArticle, json, memberClient } from "./helpers";
+
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 1, 1, 1]);
+const THUMB = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7, 7]);
+const WEBP_THUMB = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 9]);
+const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0]);
+const PDF = new TextEncoder().encode("%PDF-1.7\n%test");
+
+function form(bytes: Uint8Array, name: string, thumb?: Uint8Array | string, thumbName = "thumb.png") {
+  const f = new FormData();
+  f.append("file", new File([bytes], name));
+  if (typeof thumb === "string") f.append("thumb", thumb);
+  else if (thumb) f.append("thumb", new File([thumb], thumbName));
+  return f;
+}
+
+function upload(c: Client, articleId: string, bytes: Uint8Array, name: string, thumb?: Uint8Array | string, thumbName?: string) {
+  return c.request(`/api/articles/${articleId}/attachments`, { method: "POST", body: form(bytes, name, thumb, thumbName) });
+}
+
+function uploadDraft(c: Client, bytes: Uint8Array, name: string, thumb?: Uint8Array) {
+  return c.request("/api/attachments", { method: "POST", body: form(bytes, name, thumb) });
+}
+
+const bytesOf = async (res: Response) => new Uint8Array(await res.arrayBuffer());
+const keyOf = async (id: string) =>
+  (await env.DB.prepare("SELECT r2_key FROM attachments WHERE id = ?").bind(id).first<{ r2_key: string }>())!.r2_key;
+
+describe("添付画像の小さい版", () => {
+  it("小さい版を付けて添付すると /thumb で返し、元の URL は元の画像のまま", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const article = await createArticle(client);
+    const { attachment } = await json(await upload(client, article.id, PNG, "写真.png", THUMB));
+
+    const thumb = await client.get(`${attachment.url}/thumb`);
+    expect(thumb.status).toBe(200);
+    expect(thumb.headers.get("content-type")).toBe("image/png");
+    expect(thumb.headers.get("cache-control")).toContain("private");
+    expect(await bytesOf(thumb)).toEqual(THUMB);
+    expect(await bytesOf(await client.get(attachment.url))).toEqual(PNG);
+
+    const webp = (await json(await upload(client, article.id, PNG, "b.png", WEBP_THUMB, "thumb.webp"))).attachment;
+    const got = await client.get(`${webp.url}/thumb`);
+    expect(got.headers.get("content-type")).toBe("image/webp");
+  });
+
+  it("小さい版がなければ元の画像を返す（R2 から消えていても）", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin);
+    const plain = (await json(await upload(admin, article.id, PNG, "a.png"))).attachment;
+    expect(await bytesOf(await admin.get(`${plain.url}/thumb`))).toEqual(PNG);
+
+    const withThumb = (await json(await upload(admin, article.id, PNG, "b.png", THUMB))).attachment;
+    await env.FILES.delete(`${await keyOf(withThumb.id)}.thumb`);
+    const fallback = await admin.get(`${withThumb.url}/thumb`);
+    expect(fallback.status).toBe(200);
+    expect(await bytesOf(fallback)).toEqual(PNG);
+  });
+
+  it("画像以外や、WebP・PNG 以外、大きすぎる小さい版は断る", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin);
+    expect((await upload(admin, article.id, PDF, "a.pdf", THUMB)).status).toBe(400);
+    expect((await upload(admin, article.id, PNG, "a.png", "not a file")).status).toBe(400);
+    expect((await upload(admin, article.id, PNG, "a.png", GIF, "thumb.gif")).status).toBe(415);
+    const svg = new TextEncoder().encode("<svg onload=alert(1)>");
+    expect((await upload(admin, article.id, PNG, "a.png", svg, "thumb.svg")).status).toBe(415);
+    const big = new Uint8Array(200 * 1024 + 1);
+    big.set(THUMB);
+    expect((await upload(admin, article.id, PNG, "a.png", big)).status).toBe(413);
+    const exact = new Uint8Array(200 * 1024);
+    exact.set(THUMB);
+    expect((await upload(admin, article.id, PNG, "a.png", exact)).status).toBe(201);
+    // 断ったときは何も残さない
+    const { results } = await env.DB.prepare("SELECT id FROM attachments WHERE article_id = ?").bind(article.id).all();
+    expect(results).toHaveLength(1);
+  });
+
+  it("見える人の判定は元の添付と同じ", async () => {
+    const admin = await adminClient();
+    const a = await memberClient(admin);
+    const b = await memberClient(admin);
+    const article = await createArticle(a.client);
+    const { attachment } = await json(await upload(a.client, article.id, PNG, "a.png", THUMB));
+    expect((await new Client().get(`${attachment.url}/thumb`)).status).toBe(401);
+    expect((await b.client.get(`${attachment.url}/thumb`)).status).toBe(200);
+
+    const draft = (await json(await uploadDraft(a.client, PNG, "d.png", THUMB))).attachment;
+    expect((await a.client.get(`${draft.url}/thumb`)).status).toBe(200);
+    expect(await bytesOf(await a.client.get(`${draft.url}/thumb`))).toEqual(THUMB);
+    expect((await b.client.get(`${draft.url}/thumb`)).status).toBe(404);
+
+    await a.client.del(`/api/articles/${article.id}`);
+    expect((await b.client.get(`${attachment.url}/thumb`)).status).toBe(404);
+    expect((await admin.get(`${attachment.url}/thumb`)).status).toBe(200);
+    expect((await admin.get("/api/attachments/00000000-0000-0000-0000-000000000000/thumb")).status).toBe(404);
+  });
+
+  it("添付の削除・記事の完全削除で小さい版も消える", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin);
+    const one = (await json(await upload(admin, article.id, PNG, "a.png", THUMB))).attachment;
+    const oneKey = await keyOf(one.id);
+    expect(await env.FILES.head(`${oneKey}.thumb`)).not.toBeNull();
+    expect((await admin.del(one.url)).status).toBe(200);
+    expect(await env.FILES.head(`${oneKey}.thumb`)).toBeNull();
+
+    const two = (await json(await upload(admin, article.id, PNG, "b.png", THUMB))).attachment;
+    const twoKey = await keyOf(two.id);
+    await admin.del(`/api/articles/${article.id}`);
+    expect((await admin.del(`/api/admin/trash/${article.id}`)).status).toBe(200);
+    expect(await env.FILES.head(twoKey)).toBeNull();
+    expect(await env.FILES.head(`${twoKey}.thumb`)).toBeNull();
+  });
+
+  it("使われなかった下書きの掃除で小さい版も消える", async () => {
+    const admin = await adminClient();
+    const old = (await json(await uploadDraft(admin, PNG, "old.png", THUMB))).attachment;
+    await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?").bind(Date.now() - 25 * 60 * 60 * 1000, old.id).run();
+    await uploadDraft(admin, PNG, "new.png");
+    let gone = false;
+    for (let i = 0; i < 20 && !gone; i++) {
+      gone = (await env.FILES.head(`attachments/${old.id}.thumb`)) === null;
+      if (!gone) await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(gone).toBe(true);
+    expect(await env.FILES.head(`attachments/${old.id}`)).toBeNull();
+  });
+});

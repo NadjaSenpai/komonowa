@@ -6,6 +6,7 @@ import { requireAdmin, requireAuth, revokeUserSessions } from "../session";
 import { sendOrFail } from "../mail";
 import { inviteMail, resetMail } from "../mailTemplates";
 import { assertTitleFree } from "./articles";
+import { deleteObjects } from "./attachments";
 
 const HOUR = 60 * 60 * 1000;
 const RESTORE_CLASH = "同じタイトルの記事がすでにあります。どちらかのタイトルを変えてから戻してください";
@@ -172,8 +173,10 @@ admin.delete("/trash/:id", async (c) => {
   const id = c.req.param("id");
   const article = await c.env.DB.prepare("SELECT id FROM articles WHERE id = ? AND deleted_at IS NOT NULL").bind(id).first();
   if (!article) fail(404, "ごみ箱に記事が見つかりません");
-  const { results } = await c.env.DB.prepare("SELECT r2_key FROM attachments WHERE article_id = ?").bind(id).all<{ r2_key: string }>();
-  if (results.length > 0) await c.env.FILES.delete(results.map((r) => r.r2_key));
+  const { results } = await c.env.DB.prepare("SELECT r2_key, thumb_key FROM attachments WHERE article_id = ?")
+    .bind(id)
+    .all<{ r2_key: string; thumb_key: string | null }>();
+  await deleteObjects(c.env, results);
   await c.env.DB.prepare("DELETE FROM articles WHERE id = ? AND deleted_at IS NOT NULL").bind(id).run();
   return c.json({ ok: true });
 });

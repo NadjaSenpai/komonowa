@@ -4,6 +4,8 @@ import { fail } from "../http";
 import { requireAuth } from "../session";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+/** 一覧に出す小さい版（長辺 400px の WebP か PNG）の上限 */
+export const MAX_THUMB_BYTES = 200 * 1024;
 
 type Kind = "image" | "pdf" | "zip" | "ole" | "text";
 interface FileType {
@@ -78,7 +80,7 @@ function cleanFilename(name: string) {
 /** multipart の file を検証して取り出す。種類は拡張子で決め、中身の先頭バイトと照合する */
 async function readUpload(c: Context<AppEnv>) {
   const declared = Number(c.req.header("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_FILE_BYTES + 64 * 1024) fail(413, "ファイルは10MBまでです");
+  if (Number.isFinite(declared) && declared > MAX_FILE_BYTES + MAX_THUMB_BYTES + 64 * 1024) fail(413, "ファイルは10MBまでです");
   let form: FormData;
   try {
     form = await c.req.formData();
@@ -95,10 +97,44 @@ async function readUpload(c: Context<AppEnv>) {
   if (!filename || !type) fail(415, "この種類のファイルは添付できません（画像・PDF・Office 文書・テキスト・ZIP のみ）");
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!contentMatches(ext, bytes)) fail(415, "ファイルの中身が拡張子と一致しません");
-  return { filename, type, bytes };
+  return { filename, type, bytes, thumb: await readThumb(form, type) };
 }
 
-function created(id: string, upload: { filename: string; type: FileType; bytes: Uint8Array }) {
+/** 画像に添えられた小さい版。WebP か PNG だけを受け付け、種類は中身で決める */
+async function readThumb(form: FormData, type: FileType) {
+  const thumb = form.get("thumb");
+  if (thumb === null) return null;
+  if (!(thumb instanceof File) || thumb.size === 0 || type.kind !== "image") fail(400, "小さい版の画像が正しくありません");
+  if (thumb.size > MAX_THUMB_BYTES) fail(413, "小さい版の画像は200KBまでです");
+  const bytes = new Uint8Array(await thumb.arrayBuffer());
+  const ext = ["webp", "png"].find((e) => contentMatches(e, bytes));
+  if (!ext) fail(415, "小さい版は WebP か PNG にしてください");
+  return { bytes, mime: TYPES[ext]!.mime };
+}
+
+type Upload = Awaited<ReturnType<typeof readUpload>>;
+
+/** 元のファイルと小さい版を R2 に置く。小さい版のキーを返す */
+async function putObjects(env: Env, key: string, upload: Upload) {
+  await env.FILES.put(key, upload.bytes, { httpMetadata: { contentType: upload.type.mime } });
+  if (!upload.thumb) return null;
+  const thumbKey = `${key}.thumb`;
+  try {
+    await env.FILES.put(thumbKey, upload.thumb.bytes, { httpMetadata: { contentType: upload.thumb.mime } });
+  } catch (err) {
+    await env.FILES.delete(key);
+    throw err;
+  }
+  return thumbKey;
+}
+
+/** 添付の R2 本体と小さい版を消す */
+export async function deleteObjects(env: Env, rows: { r2_key: string; thumb_key: string | null }[]) {
+  const keys = rows.flatMap((r) => (r.thumb_key ? [r.r2_key, r.thumb_key] : [r.r2_key]));
+  if (keys.length > 0) await env.FILES.delete(keys);
+}
+
+function created(id: string, upload: Upload) {
   return {
     attachment: { id, filename: upload.filename, content_type: upload.type.mime, size: upload.bytes.byteLength, url: `/api/attachments/${id}` },
   };
@@ -106,11 +142,11 @@ function created(id: string, upload: { filename: string; type: FileType; bytes: 
 
 /** 期限切れの下書き添付を少しずつ消す（cron を持たないので、アップロードのついでに行う） */
 async function purgeExpiredDrafts(env: Env) {
-  const { results } = await env.DB.prepare("SELECT id, r2_key FROM attachments WHERE article_id IS NULL AND created_at < ? LIMIT 50")
+  const { results } = await env.DB.prepare("SELECT id, r2_key, thumb_key FROM attachments WHERE article_id IS NULL AND created_at < ? LIMIT 50")
     .bind(Date.now() - DRAFT_TTL_MS)
-    .all<{ id: string; r2_key: string }>();
+    .all<{ id: string; r2_key: string; thumb_key: string | null }>();
   if (results.length === 0) return;
-  await env.FILES.delete(results.map((r) => r.r2_key));
+  await deleteObjects(env, results);
   await env.DB.prepare(`DELETE FROM attachments WHERE article_id IS NULL AND id IN (${results.map(() => "?").join(", ")})`)
     .bind(...results.map((r) => r.id))
     .run();
@@ -124,13 +160,18 @@ attachments.post("/attachments", requireAuth, async (c) => {
   const upload = await readUpload(c);
   const id = crypto.randomUUID();
   const key = `attachments/${id}`;
-  await c.env.FILES.put(key, upload.bytes, { httpMetadata: { contentType: upload.type.mime } });
-  await c.env.DB.prepare(
-    `INSERT INTO attachments (id, article_id, r2_key, filename, content_type, size, uploaded_by, created_at)
-     VALUES (?, NULL, ?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(id, key, upload.filename, upload.type.mime, upload.bytes.byteLength, c.var.user.id, Date.now())
-    .run();
+  const thumbKey = await putObjects(c.env, key, upload);
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO attachments (id, article_id, r2_key, thumb_key, filename, content_type, size, uploaded_by, created_at)
+       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(id, key, thumbKey, upload.filename, upload.type.mime, upload.bytes.byteLength, c.var.user.id, Date.now())
+      .run();
+  } catch (err) {
+    await deleteObjects(c.env, [{ r2_key: key, thumb_key: thumbKey }]);
+    throw err;
+  }
   c.executionCtx.waitUntil(purgeExpiredDrafts(c.env).catch((err) => console.error("draft purge failed", err)));
   return c.json(created(id, upload), 201);
 });
@@ -143,19 +184,19 @@ attachments.post("/articles/:id/attachments", requireAuth, async (c) => {
 
   const id = crypto.randomUUID();
   const key = `attachments/${articleId}/${id}`;
-  await c.env.FILES.put(key, upload.bytes, { httpMetadata: { contentType: upload.type.mime } });
+  const thumbKey = await putObjects(c.env, key, upload);
   try {
     await c.env.DB.prepare(
-      `INSERT INTO attachments (id, article_id, r2_key, filename, content_type, size, uploaded_by, created_at)
-       SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL)`,
+      `INSERT INTO attachments (id, article_id, r2_key, thumb_key, filename, content_type, size, uploaded_by, created_at)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL)`,
     )
-      .bind(id, articleId, key, upload.filename, upload.type.mime, upload.bytes.byteLength, c.var.user.id, Date.now(), articleId)
+      .bind(id, articleId, key, thumbKey, upload.filename, upload.type.mime, upload.bytes.byteLength, c.var.user.id, Date.now(), articleId)
       .run()
       .then((r) => {
         if (r.meta.changes === 0) throw new Error("article gone");
       });
   } catch {
-    await c.env.FILES.delete(key);
+    await deleteObjects(c.env, [{ r2_key: key, thumb_key: thumbKey }]);
     fail(409, "記事が削除されたため添付できませんでした");
   }
   return c.json(created(id, upload), 201);
@@ -163,6 +204,7 @@ attachments.post("/articles/:id/attachments", requireAuth, async (c) => {
 
 interface AttachmentRow {
   r2_key: string;
+  thumb_key: string | null;
   article_id: string | null;
   filename: string;
   content_type: string;
@@ -173,19 +215,42 @@ interface AttachmentRow {
 async function findAttachment(db: D1Database, id: string) {
   return db
     .prepare(
-      `SELECT f.r2_key, f.article_id, f.filename, f.content_type, f.uploaded_by, a.deleted_at
+      `SELECT f.r2_key, f.thumb_key, f.article_id, f.filename, f.content_type, f.uploaded_by, a.deleted_at
          FROM attachments f LEFT JOIN articles a ON a.id = f.article_id WHERE f.id = ?`,
     )
     .bind(id)
     .first<AttachmentRow>();
 }
 
-attachments.get("/attachments/:id", requireAuth, async (c) => {
-  const row = await findAttachment(c.env.DB, c.req.param("id"));
-  // 下書き添付はアップロードした本人のみ、削除済み記事の添付は管理者のみ
+/** 見てよい添付を探す。下書き添付はアップロードした本人のみ、削除済み記事の添付は管理者のみ */
+async function findVisible(c: Context<AppEnv>, id: string) {
+  const row = await findAttachment(c.env.DB, id);
   if (!row) fail(404, "ファイルが見つかりません");
   if (row.article_id === null && row.uploaded_by !== c.var.user.id) fail(404, "ファイルが見つかりません");
   if (row.deleted_at !== null && c.var.user.role !== "admin") fail(404, "ファイルが見つかりません");
+  return row;
+}
+
+/** 一覧に出す小さい版。ない添付（古い添付、バックアップから戻したもの）は元の画像を返す */
+attachments.get("/attachments/:id/thumb", requireAuth, async (c) => {
+  const row = await findVisible(c, c.req.param("id"));
+  if (!row.content_type.startsWith("image/")) fail(404, "ファイルが見つかりません");
+  const object = (row.thumb_key ? await c.env.FILES.get(row.thumb_key) : null) ?? (await c.env.FILES.get(row.r2_key));
+  if (!object) fail(404, "ファイルが見つかりません");
+  return new Response(object.body, {
+    headers: {
+      "content-type": object.httpMetadata?.contentType ?? row.content_type,
+      "content-length": String(object.size),
+      "x-content-type-options": "nosniff",
+      "cache-control": "private, max-age=300",
+      "cross-origin-resource-policy": "same-origin",
+      "content-security-policy": "default-src 'none'; sandbox",
+    },
+  });
+});
+
+attachments.get("/attachments/:id", requireAuth, async (c) => {
+  const row = await findVisible(c, c.req.param("id"));
   const object = await c.env.FILES.get(row.r2_key);
   if (!object) fail(404, "ファイルが見つかりません");
   const inline = row.content_type.startsWith("image/") || row.content_type === "application/pdf";
@@ -219,6 +284,6 @@ attachments.delete("/attachments/:id", requireAuth, async (c) => {
     fail(409, `${where}の本文で使われています。本文から外してから削除してください`);
   }
   await c.env.DB.prepare("DELETE FROM attachments WHERE id = ?").bind(id).run();
-  await c.env.FILES.delete(row.r2_key);
+  await deleteObjects(c.env, [row]);
   return c.json({ ok: true });
 });
