@@ -111,11 +111,21 @@ export function ArticleListPage() {
         )}
         {error && <p className="error">{error}</p>}
         {items === null && !error && <p className="muted">読み込み中…</p>}
-        {items?.length === 0 && (
-          <p className="muted">
-            記事がありません。<Link to="/articles/new">新しく作成</Link>しましょう。
-          </p>
-        )}
+        {items?.length === 0 &&
+          (q ? (
+            // キーワードで見つからなければ、その言葉をタイトルにして書き始められるようにする（[[まだない記事]] と同じ）
+            <p className="muted">
+              「{q}」に一致する記事はありません。
+              <br />
+              <Link to={`/articles/new?title=${encodeURIComponent(q)}`}>「{q}」という記事を作る</Link>
+            </p>
+          ) : selected.length > 0 ? (
+            <p className="muted">条件に一致する記事はありません。</p>
+          ) : (
+            <p className="muted">
+              記事がありません。<Link to="/articles/new">新しく作成</Link>しましょう。
+            </p>
+          ))}
         <ul className="article-list">
           {items?.map((a) => (
             <li key={a.id}>
