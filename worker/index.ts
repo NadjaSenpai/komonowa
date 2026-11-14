@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
+import { purgeExpired } from "./cleanup";
 import type { AppEnv } from "./env";
 import { admin } from "./routes/admin";
 import { articles } from "./routes/articles";
@@ -38,4 +39,9 @@ app.onError((err, c) => {
   return c.json({ error: "サーバーでエラーが発生しました" }, 500);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(purgeExpired(env.DB));
+  },
+} satisfies ExportedHandler<Env>;
