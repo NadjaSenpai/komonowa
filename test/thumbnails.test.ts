@@ -83,6 +83,16 @@ describe("添付画像の小さい版", () => {
     expect(results).toHaveLength(1);
   });
 
+  it("10MB ちょうどの画像に、上限いっぱいの小さい版を添えても受け付ける", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin);
+    const big = new Uint8Array(10 * 1024 * 1024);
+    big.set(PNG);
+    const thumb = new Uint8Array(200 * 1024);
+    thumb.set(THUMB);
+    expect((await upload(admin, article.id, big, "big.png", thumb)).status).toBe(201);
+  });
+
   it("見える人の判定は元の添付と同じ", async () => {
     const admin = await adminClient();
     const a = await memberClient(admin);

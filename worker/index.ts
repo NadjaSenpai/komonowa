@@ -6,7 +6,7 @@ import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv } from "./env";
 import { admin } from "./routes/admin";
 import { articles } from "./routes/articles";
-import { MAX_FILE_BYTES, attachments } from "./routes/attachments";
+import { MAX_FILE_BYTES, MAX_THUMB_BYTES, attachments } from "./routes/attachments";
 import { auth } from "./routes/auth";
 import { avatars, profile } from "./routes/profile";
 
@@ -19,7 +19,8 @@ app.use("*", async (c, next) => {
   await next();
   if (!c.res.headers.has("cache-control")) c.res.headers.set("cache-control", "no-store");
 });
-app.use("*", bodyLimit({ maxSize: MAX_FILE_BYTES + 64 * 1024, onError: (c) => c.json({ error: "ファイルは10MBまでです" }, 413) }));
+// 添付（10MB）に一覧用の小さい版（200KB）を添えて送るので、その分も含める
+app.use("*", bodyLimit({ maxSize: MAX_FILE_BYTES + MAX_THUMB_BYTES + 64 * 1024, onError: (c) => c.json({ error: "ファイルは10MBまでです" }, 413) }));
 
 app.route("/auth", auth);
 app.route("/auth", profile);
