@@ -16,7 +16,7 @@ admin.use("*", requireAuth, requireAdmin);
 
 admin.get("/users", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, email, name, role, status, avatar_id, created_at FROM users ORDER BY created_at",
+    "SELECT id, email, name, role, status, is_owner, avatar_id, created_at FROM users ORDER BY created_at",
   ).all();
   return c.json({ users: results });
 });
@@ -24,12 +24,15 @@ admin.get("/users", async (c) => {
 admin.patch("/users/:id", async (c) => {
   const id = c.req.param("id");
   const body = await readJson(c);
-  const target = await c.env.DB.prepare("SELECT id, role, status FROM users WHERE id = ?").bind(id).first<{
+  const target = await c.env.DB.prepare("SELECT id, role, status, is_owner FROM users WHERE id = ?").bind(id).first<{
     id: string;
     role: string;
     status: string;
+    is_owner: number;
   }>();
   if (!target) fail(404, "利用者が見つかりません");
+  // 所有者はほかの管理者に締め出されない（所有者本人も下の「自分自身」の条件で変更できない）
+  if (target.is_owner && id !== c.var.user.id) fail(403, "所有者の権限変更や無効化はできません");
 
   const role = body.role === undefined ? target.role : body.role;
   const status = body.status === undefined ? target.status : body.status;

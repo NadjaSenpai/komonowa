@@ -16,7 +16,7 @@ async function hasUsers(db: D1Database): Promise<boolean> {
 
 auth.get("/setup", async (c) => c.json({ needsSetup: !(await hasUsers(c.env.DB)) }));
 
-/** 初期管理者の作成。SETUP_TOKEN が必要で、利用者が 1 人でもいれば拒否する */
+/** 初期管理者（所有者）の作成。SETUP_TOKEN が必要で、利用者が 1 人でもいれば拒否する */
 auth.post("/setup", async (c) => {
   const expected = c.env.SETUP_TOKEN;
   if (!expected || expected.length < 32) fail(503, "SETUP_TOKEN（32文字以上）が設定されていません");
@@ -29,8 +29,8 @@ auth.post("/setup", async (c) => {
   const now = Date.now();
   const id = crypto.randomUUID();
   const result = await c.env.DB.prepare(
-    `INSERT INTO users (id, email, name, password_hash, role, status, created_at, updated_at)
-     SELECT ?, ?, ?, ?, 'admin', 'active', ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)`,
+    `INSERT INTO users (id, email, name, password_hash, role, status, is_owner, created_at, updated_at)
+     SELECT ?, ?, ?, ?, 'admin', 'active', 1, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)`,
   )
     .bind(id, addr, name, hash, now, now)
     .run();

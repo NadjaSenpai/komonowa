@@ -190,15 +190,34 @@ describe("パスワード再設定と無効化", () => {
     expect((await new Client().post("/api/auth/reset/accept", { token: first, password: "brand-new-pass-1" })).status).toBe(200);
   });
 
-  it("最後の管理者は降格・無効化できない", async () => {
-    const admin = await adminClient();
-    const me = (await json(await admin.get("/api/auth/me"))).user;
-    expect((await admin.patch(`/api/admin/users/${me.id}`, { status: "disabled" })).status).toBe(400);
-    const second = await memberClient(admin, "admin");
-    expect((await second.client.patch(`/api/admin/users/${me.id}`, { role: "member" })).status).toBe(200);
+  it("最初の管理者は所有者で、ほかの管理者から降格・無効化されない", async () => {
+    const owner = await adminClient();
+    const me = (await json(await owner.get("/api/auth/me"))).user;
+    expect((await owner.patch(`/api/admin/users/${me.id}`, { status: "disabled" })).status).toBe(400);
+    const second = await memberClient(owner, "admin");
+
+    const users = (await json(await owner.get("/api/admin/users"))).users;
+    expect(users.find((u: { id: string }) => u.id === me.id).is_owner).toBe(1);
+    expect(users.find((u: { id: string }) => u.id === second.user.id).is_owner).toBe(0);
+
+    for (const change of [{ role: "member" }, { status: "disabled" }, { role: "admin", status: "active" }]) {
+      const res = await second.client.patch(`/api/admin/users/${me.id}`, change);
+      expect(res.status).toBe(403);
+      expect((await json(res)).error).toBe("所有者の権限変更や無効化はできません");
+    }
+    expect((await owner.get("/api/admin/users")).status).toBe(200);
+
+    // 自分の降格はできず、所有者はほかの管理者を降格できる
     expect((await second.client.patch(`/api/admin/users/${second.user.id}`, { role: "member" })).status).toBe(400);
+    expect((await owner.patch(`/api/admin/users/${second.user.id}`, { role: "member" })).status).toBe(200);
     // 降格された元管理者は管理 API を使えない
-    expect((await admin.get("/api/admin/users")).status).toBe(403);
+    expect((await second.client.get("/api/admin/users")).status).toBe(403);
+  });
+
+  it("所有者は1人だけ", async () => {
+    const owner = await adminClient();
+    const second = await memberClient(owner, "admin");
+    await expect(env.DB.prepare("UPDATE users SET is_owner = 1 WHERE id = ?").bind(second.user.id).run()).rejects.toThrow(/UNIQUE/);
   });
 
   it("自分のパスワードを変更できる", async () => {
