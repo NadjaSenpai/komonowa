@@ -88,6 +88,34 @@ tar -xzf backups/restore.tar.gz -C backups/restore
 - B2のダウンロード無料枠、GitHub Actionsの無料実行枠は保管容量とは別。各サービスの利用量を確認する
 - 初回と3か月に1回はローカル復元を試し、記事・履歴・添付・アイコンを確認する
 
+## 定期バックアップ（自動）
+
+GitHub Actions（`.github/workflows/backup.yml`）が、毎月 2 日と 16 日の 03:30（JST）に `scripts/backup.mjs --remote` を実行します。結果は `tar.gz` にまとめ、パスフレーズで暗号化（GPG、AES256）してから、その実行のアーティファクトとして 90 日保管します（約 6 世代）。暗号化しないものは置きません。
+
+必要なシークレット（リポジトリの Settings → Secrets and variables → Actions）:
+
+| シークレット | 内容 |
+| --- | --- |
+| `BACKUP_PASSPHRASE` | 暗号化のパスフレーズ。長いランダムな値にし、**パスワード管理ツールにも控える**（なくすと復元できない） |
+| `CLOUDFLARE_API_TOKEN` | デプロイと共用。D1 の Edit と、R2 の読み取り権限が必要 |
+| `CLOUDFLARE_ACCOUNT_ID` | デプロイと共用 |
+
+注意:
+
+- このリポジトリは public です。アーティファクトはリポジトリを読める人が取得できる前提で、暗号化を外さないでください
+- public リポジトリでは、60 日間リポジトリに動きがないと定期実行が自動で止まります（GitHub の仕様）。しばらく更新しないときは、Actions の画面で止まっていないか確かめ、止まっていれば「Enable workflow」で戻します
+- Actions の画面の「Run workflow」で、いつでも手動で取れます
+- 手動バックアップ（下の「手動バックアップ」）と中身は同じです
+
+取り出すとき:
+
+```sh
+gh run download <実行ID> -n <アーティファクト名>      # または Actions の画面からダウンロード
+gpg -d komonowa-backup-<日時>.tar.gz.gpg | tar -xzf -  # パスフレーズを聞かれる。backup/ ができる
+```
+
+できた `backup/` は、下の復元手順の `backups/<日時>` と同じ形です。
+
 ## D1 の復元
 
 ### A. 直近30日以内の時点に戻す（Time Travel）

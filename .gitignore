@@ -12,3 +12,6 @@ wiki-mock/
 # design tooling
 .hallmark/
 .taste-skill/
+
+# Local draft for the komonowa wiki
+/docs/komonowa-architecture.md

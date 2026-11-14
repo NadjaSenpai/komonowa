@@ -11,6 +11,7 @@
 
 - `main` に入ると GitHub Actions が自動でデプロイする（マイグレーション → ビルド → デプロイ）。シークレット `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` が必要。
 - スキーマを変えるときは、`main` に入れる前に `npm run backup:remote` を実行する。
+- 定期バックアップは毎月 2 日と 16 日（`.github/workflows/backup.yml`）。暗号化のパスフレーズはシークレット `BACKUP_PASSPHRASE`。
 
 ## 残っていること
 
