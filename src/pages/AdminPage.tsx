@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { useAuth } from "../App";
 import { api, errorMessage, formatDate } from "../api";
 import { Byline } from "../Avatar";
@@ -22,6 +23,13 @@ interface TrashItem {
   deleted_by_name: string | null;
 }
 
+interface SharedItem {
+  article_id: string;
+  title: string;
+  created_at: number;
+  created_by_name: string;
+}
+
 interface Tag {
   id: string;
   name: string;
@@ -38,6 +46,7 @@ export function AdminPage() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [trash, setTrash] = useState<TrashItem[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [shares, setShares] = useState<SharedItem[]>([]);
   const [sent, setSent] = useState("");
   // 招待一覧は、ふだんはまだ何かする必要がある招待だけ出す
   const [showAllInvites, setShowAllInvites] = useState(false);
@@ -50,16 +59,18 @@ export function AdminPage() {
 
   const load = useCallback(async () => {
     try {
-      const [u, i, t, g] = await Promise.all([
+      const [u, i, t, g, s] = await Promise.all([
         api.get<{ users: AdminUser[] }>("/admin/users"),
         api.get<{ invites: Invite[] }>("/admin/invites"),
         api.get<{ articles: TrashItem[] }>("/admin/trash"),
         api.get<{ tags: Tag[] }>("/articles/tags"),
+        api.get<{ shares: SharedItem[] }>("/admin/shares"),
       ]);
       setUsers(u.users);
       setInvites(i.invites);
       setTrash(t.articles);
       setTags(g.tags);
+      setShares(s.shares);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -243,6 +254,35 @@ export function AdminPage() {
             ))}
           </tbody>
         </table>
+      </section>
+
+      <section>
+        <h2>共有中の記事</h2>
+        <p className="muted small">URL を知っている人がログインなしで読める記事です。止めるとその URL では見られなくなります。</p>
+        {shares.length === 0 && <p className="muted small">共有中の記事はありません</p>}
+        {shares.length > 0 && (
+          <table>
+            <tbody>
+              {shares.map((sh) => (
+                <tr key={sh.article_id}>
+                  <td><Link to={`/articles/${sh.article_id}`}>{sh.title}</Link></td>
+                  <td>{formatDate(sh.created_at)} {sh.created_by_name} が共有</td>
+                  <td>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="danger small"
+                        onClick={() => confirm(`「${sh.title}」の共有を止めますか？`) && run(() => api.del(`/admin/shares/${sh.article_id}`))}
+                      >
+                        共有を止める
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section>

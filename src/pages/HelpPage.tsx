@@ -15,6 +15,7 @@ export const HELP_SECTIONS: { id: string; title: string; admin?: boolean }[] = [
   { id: "tasks", title: "チェックリスト" },
   { id: "history", title: "履歴と同時編集" },
   { id: "trash", title: "記事の削除" },
+  { id: "share", title: "記事を共有する" },
   { id: "account", title: "アカウント" },
   { id: "trouble", title: "困ったとき" },
   { id: "markdown", title: "Markdown の書き方（記号で書きたい人へ）" },
@@ -138,6 +139,18 @@ export function HelpContent({ admin }: { admin: boolean }) {
         </ul>
       </Section>
 
+      <Section id="share" title={title("share")}>
+        <p>komonowa のアカウントを持っていない人に、記事を1本だけ見せられます。</p>
+        <ul>
+          <li>記事を開いて「共有」を押し、「共有を始める」を押すと共有用の URL ができます。「コピー」で URL をコピーして、見せたい人に送ってください。</li>
+          <li>URL を知っている人は、ログインなしで記事のタイトル・本文・最終更新日と、貼った画像や添付ファイルを見られます。書いた人の名前やタグ、ほかの記事は見えません。本文の記事リンクはただの文字になります。</li>
+          <li>共有中に記事を直すと、共有先にもすぐ反映されます。共有中の記事には「共有中」の印が付きます。</li>
+          <li>やめるときは「共有」から「共有を止める」を押します。その URL ではすぐに見られなくなります。もう一度共有すると新しい URL になり、前の URL は使えないままです。</li>
+          <li>記事を削除（ごみ箱へ移動）すると、共有も止まります。</li>
+          <li>共有ページは検索エンジンや AI に載せないよう設定していますが、URL を知った人は誰でも見られます。URL を送る相手には気をつけてください。</li>
+        </ul>
+      </Section>
+
       <Section id="account" title={title("account")}>
         <p>右上の自分の名前を押すと、アカウントの画面が開きます。</p>
         <ul>
@@ -197,6 +210,7 @@ export function HelpContent({ admin }: { admin: boolean }) {
             <li>権限（メンバー・管理者）の変更と「無効化」「再有効化」ができます。無効化しても、その人の記事と履歴は残ります。</li>
             <li>最初の管理者は「所有者」で、ほかの管理者から権限の変更や無効化はできません。</li>
             <li>「ごみ箱」の記事は「復元」で戻せます。「完全削除」すると履歴と添付ファイルも消え、元に戻せません。</li>
+            <li>「共有中の記事」で、だれかが共有している記事を確かめて「共有を止める」ことができます。</li>
             <li>「タグ」の「名前を変更」と削除ができます。</li>
           </ul>
         </Section>

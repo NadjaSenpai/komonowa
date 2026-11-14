@@ -95,4 +95,5 @@ npm run dev
   npx wrangler d1 execute wiki-db --remote --command "UPDATE users SET is_owner = 0 WHERE is_owner = 1 AND EXISTS (SELECT 1 FROM users WHERE email = '新しい所有者のアドレス' AND role = 'admin' AND status = 'active'); UPDATE users SET is_owner = 1 WHERE email = '新しい所有者のアドレス' AND role = 'admin' AND status = 'active';"
   npx wrangler d1 execute wiki-db --remote --command "SELECT name, email FROM users WHERE is_owner = 1"  # 確認
   ```
+- **外部共有**: 管理画面の「共有中の記事」で、だれが何を共有しているかを確認して止められる。共有ページは `robots.txt` などでボットに載せないよう伝えているが、行儀のよいボットにしか効かないため、Cloudflare ダッシュボードで nadja.app の「AI ボットをブロック」（Security → Bots の AI Crawl Control / Block AI bots）を有効にしておく。守りの本体は URL を知られないことなので、URL が漏れたら共有を止めて始め直す（新しい URL になる）
 - **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る

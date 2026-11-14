@@ -4,6 +4,7 @@ import { useAuth } from "../App";
 import { api, errorMessage, formatDate, formatSize, type Article, type Attachment, type Backlink, type WikiLink } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
+import { SharePanel, type Share } from "../SharePanel";
 import { ACCEPT, uploadAttachment } from "../upload";
 import { anyTaskChecked, clearTaskChecks, prepareTaskBoxes, toggleTaskBox } from "../taskChecks";
 import { buildToc, type TocItem } from "../toc";
@@ -29,6 +30,9 @@ export function ArticleViewPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [links, setLinks] = useState<WikiLink[]>([]);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
+  const [share, setShare] = useState<Share | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  useEffect(() => setShareOpen(false), [id]);
   const [error, setError] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -38,12 +42,13 @@ export function ArticleViewPage() {
   const load = useCallback(() => {
     setError("");
     api
-      .get<{ article: Article; attachments: Attachment[]; links: WikiLink[]; backlinks: Backlink[] }>(`/articles/${id}`)
+      .get<{ article: Article; attachments: Attachment[]; links: WikiLink[]; backlinks: Backlink[]; share: Share | null }>(`/articles/${id}`)
       .then((r) => {
         setArticle(r.article);
         setAttachments(r.attachments);
         setLinks(r.links);
         setBacklinks(r.backlinks);
+        setShare(r.share);
       })
       .catch((err) => setError(errorMessage(err)));
   }, [id]);
@@ -154,10 +159,13 @@ export function ArticleViewPage() {
         <div className="actions">
           <Link className="button" to={`/articles/${id}/edit`}>編集</Link>
           <Link className="button secondary" to={`/articles/${id}/history`}>履歴</Link>
+          <button type="button" className="secondary" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>共有</button>
           <button type="button" className="danger" onClick={remove}>削除</button>
         </div>
       </div>
+      {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
       <p className="meta">
+        {share && <span className="shared-badge" title="URL を知っている人はログインなしで読めます">共有中</span>}
         {article.tags.map((t) => (
           <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>#{t}</Link>
         ))}

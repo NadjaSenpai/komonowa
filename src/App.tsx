@@ -10,6 +10,7 @@ import { ArticleViewPage } from "./pages/ArticleViewPage";
 import { HelpPage } from "./pages/HelpPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { EmailConfirmPage, InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
+import { SharedPage } from "./pages/SharedPage";
 import { WikiLinkPage } from "./pages/WikiLinkPage";
 
 interface AuthState {
@@ -55,6 +56,8 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupPage />} />
+        {/* 外部共有された記事。ログイン不要 */}
+        <Route path="/s/:token" element={<SharedPage />} />
         <Route path="/invite" element={<InvitePage />} />
         <Route path="/reset" element={<ResetPage />} />
         <Route path="/email" element={<EmailConfirmPage />} />

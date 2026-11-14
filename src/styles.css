@@ -381,3 +381,12 @@ tr.selected { background: var(--color-selected); }
   .tag { min-height: var(--hit); }
   .markup-toolbar button, .markup-more summary { min-height: var(--hit); }
 }
+
+/* 外部共有（記事画面の共有の欄と、ログイン不要の共有ページ /s/:token） */
+.share-panel { margin: var(--space-sm) 0 var(--space-md); padding: var(--space-md); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); }
+.share-panel > :last-child { margin-bottom: 0; }
+.share-url { display: flex; gap: var(--space-xs); margin-bottom: var(--space-sm); }
+.share-url input { min-width: 0; flex: 1; font-family: var(--font-outlier); }
+.shared-badge { display: inline-block; padding: 0 var(--space-xs); border: 1px solid var(--color-accent); border-radius: var(--radius-pill); color: var(--color-accent); font-size: var(--text-xs); font-weight: 700; }
+.shared { max-width: var(--content); margin: 0 auto; padding: var(--space-xl) var(--space-lg) var(--space-3xl); }
+.shared-label { color: var(--color-muted); margin-bottom: var(--space-md); }
