@@ -50,7 +50,10 @@ export function ArticleListPage() {
   }, [params]);
 
   useEffect(() => {
-    api.get<{ tags: Tag[] }>("/articles/tags").then((r) => setTags(r.tags.filter((t) => t.count > 0))).catch(() => undefined);
+    api
+      .get<{ tags: Tag[] }>("/articles/tags")
+      .then((r) => setTags(r.tags.filter((t) => t.count > 0)))
+      .catch(() => undefined);
   }, []);
 
   function update(next: { q?: string; tags?: string[]; page?: number }) {
@@ -79,8 +82,17 @@ export function ArticleListPage() {
         </div>
         <WelcomeNotice />
         <form onSubmit={submit} className="search">
-          <input type="search" placeholder="キーワードで検索" title="空白で区切ると、すべてを含む記事を探します" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="検索" />
-          <button type="submit" className="secondary">検索</button>
+          <input
+            type="search"
+            placeholder="キーワードで検索"
+            title="空白で区切ると、すべてを含む記事を探します"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            aria-label="検索"
+          />
+          <button type="submit" className="secondary">
+            検索
+          </button>
         </form>
         {(q || selected.length > 0) && (
           <div className="active-filters" aria-label="絞り込み条件">
@@ -88,31 +100,39 @@ export function ArticleListPage() {
             {q && <span className="small">「{q}」</span>}
             {selected.map((t) => (
               <button key={t} type="button" className="filter-chip" aria-label={`タグ「${t}」の絞り込みを解除`} onClick={() => toggleTag(t)}>
-                <span>#{t}</span><span aria-hidden="true">×</span>
+                <span>#{t}</span>
+                <span aria-hidden="true">×</span>
               </button>
             ))}
-            <button type="button" className="link" onClick={() => setParams(new URLSearchParams())}>すべて解除</button>
+            <button type="button" className="link" onClick={() => setParams(new URLSearchParams())}>
+              すべて解除
+            </button>
           </div>
         )}
       </div>
       <aside className="sidebar">
         <h2>タグで絞り込み</h2>
         <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
-        <div className="tag-scroll"><div className="tags tag-cloud" tabIndex={0} aria-label="タグで絞り込み">
-          {tags.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={selected.includes(t.name) ? "tag active" : "tag"}
-              aria-pressed={selected.includes(t.name)}
-              aria-label={`${t.name}（${t.count}件）`}
-              onClick={() => toggleTag(t.name)}
-            >
-              {t.name}<span className="count" aria-hidden="true">{t.count}</span>
-            </button>
-          ))}
-          {tags.length === 0 && <p className="muted small">タグはまだありません</p>}
-        </div></div>
+        <div className="tag-scroll">
+          <div className="tags tag-cloud" tabIndex={0} aria-label="タグで絞り込み">
+            {tags.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={selected.includes(t.name) ? "tag active" : "tag"}
+                aria-pressed={selected.includes(t.name)}
+                aria-label={`${t.name}（${t.count}件）`}
+                onClick={() => toggleTag(t.name)}
+              >
+                {t.name}
+                <span className="count" aria-hidden="true">
+                  {t.count}
+                </span>
+              </button>
+            ))}
+            {tags.length === 0 && <p className="muted small">タグはまだありません</p>}
+          </div>
+        </div>
       </aside>
       <section aria-label="記事一覧">
         {error && <p className="error">{error}</p>}
@@ -140,7 +160,9 @@ export function ArticleListPage() {
                   <img src={`/api/attachments/${a.cover}/thumb`} alt="" loading="lazy" decoding="async" />
                 </Link>
               )}
-              <Link to={`/articles/${a.id}`} className="title">{a.title}</Link>
+              <Link to={`/articles/${a.id}`} className="title">
+                {a.title}
+              </Link>
               {/* 抜粋を押しても記事を開く。タイトルと同じリンク先なので、読み上げとキーボードの移動からは外す */}
               <p className="excerpt">
                 <Link to={`/articles/${a.id}`} className="excerpt-link" tabIndex={-1} aria-hidden="true">
@@ -149,9 +171,11 @@ export function ArticleListPage() {
               </p>
               <div className="list-item-meta">
                 <div className="tags article-tags">
-                {a.tags.map((t) => (
-                  <button key={t} type="button" className="tag small" onClick={() => toggleTag(t)}>#{t}</button>
-                ))}
+                  {a.tags.map((t) => (
+                    <button key={t} type="button" className="tag small" onClick={() => toggleTag(t)}>
+                      #{t}
+                    </button>
+                  ))}
                 </div>
                 <p className="meta article-update">
                   <Byline userId={a.updated_by} name={a.updated_by_name} avatarId={a.updated_by_avatar} />
@@ -162,8 +186,16 @@ export function ArticleListPage() {
           ))}
         </ul>
         <div className="pager">
-          {page > 1 && <button type="button" onClick={() => update({ page: page - 1 })}>前へ</button>}
-          {hasMore && <button type="button" onClick={() => update({ page: page + 1 })}>次へ</button>}
+          {page > 1 && (
+            <button type="button" onClick={() => update({ page: page - 1 })}>
+              前へ
+            </button>
+          )}
+          {hasMore && (
+            <button type="button" onClick={() => update({ page: page + 1 })}>
+              次へ
+            </button>
+          )}
         </div>
       </section>
     </div>

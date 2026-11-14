@@ -56,7 +56,9 @@ describe("ログインとセッション", () => {
   it("期限切れのセッションは使えない", async () => {
     const admin = await adminClient();
     const token = admin.cookie.split("=")[1] as string;
-    await env.DB.prepare("UPDATE sessions SET expires_at = ? WHERE id_hash = ?").bind(Date.now() - 1, await sha256(token)).run();
+    await env.DB.prepare("UPDATE sessions SET expires_at = ? WHERE id_hash = ?")
+      .bind(Date.now() - 1, await sha256(token))
+      .run();
     expect((await admin.get("/api/auth/me")).status).toBe(401);
   });
 
@@ -98,7 +100,9 @@ describe("招待", () => {
     // 期限切れ
     await admin.post("/api/admin/invites", { email: "late@example.com" });
     const expired = tokenFrom(lastMail());
-    await env.DB.prepare("UPDATE auth_tokens SET expires_at = ? WHERE token_hash = ?").bind(Date.now() - 1, await sha256(expired)).run();
+    await env.DB.prepare("UPDATE auth_tokens SET expires_at = ? WHERE token_hash = ?")
+      .bind(Date.now() - 1, await sha256(expired))
+      .run();
     expect((await new Client().post("/api/auth/invite/accept", { token: expired, name: "遅刻", password: "late-member-pass" })).status).toBe(410);
 
     // 取り消し

@@ -81,8 +81,14 @@ export function SharedPage() {
                 autoFocus
               />
             </label>
-            {passError && <p className="error" role="alert">{passError}</p>}
-            <button type="submit" disabled={busy || passcode.length !== 6}>開く</button>
+            {passError && (
+              <p className="error" role="alert">
+                {passError}
+              </p>
+            )}
+            <button type="submit" disabled={busy || passcode.length !== 6}>
+              開く
+            </button>
           </form>
         </div>
       </div>

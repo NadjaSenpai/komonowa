@@ -62,9 +62,7 @@ function renderAction(a: Action): string {
 }
 
 function renderHtml(c: Content): string {
-  const lead = c.lead
-    .map((p) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:${COLOR.ink};">${escapeHtml(p)}</p>`)
-    .join("");
+  const lead = c.lead.map((p) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:${COLOR.ink};">${escapeHtml(p)}</p>`).join("");
   return `<!doctype html>
 <html lang="ja">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(c.title)}</title></head>

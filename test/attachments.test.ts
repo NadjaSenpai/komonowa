@@ -114,8 +114,7 @@ describe("添付ファイル", () => {
     const { client } = await memberClient(admin);
     const article = await createArticle(client);
     const { attachment } = await json(await upload(client, article.id, PNG, "図.png"));
-    const put = (body: string, baseVersion: number) =>
-      client.put(`/api/articles/${article.id}`, { title: "図入り", body, tags: [], baseVersion });
+    const put = (body: string, baseVersion: number) => client.put(`/api/articles/${article.id}`, { title: "図入り", body, tags: [], baseVersion });
     expect((await put(`![図](${attachment.url})`, 1)).status).toBe(200);
 
     const blocked = await client.del(attachment.url);
@@ -197,7 +196,9 @@ describe("下書き添付（保存前の記事への差し込み）", () => {
   it("1日たっても使われなかった下書きは、次のアップロードのついでに消える", async () => {
     const admin = await adminClient();
     const old = (await json(await uploadDraft(admin, PNG, "old.png"))).attachment;
-    await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?").bind(Date.now() - 25 * 60 * 60 * 1000, old.id).run();
+    await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?")
+      .bind(Date.now() - 25 * 60 * 60 * 1000, old.id)
+      .run();
     const fresh = (await json(await uploadDraft(admin, PNG, "new.png"))).attachment;
 
     let gone = false;

@@ -7,7 +7,12 @@ const emailHash = (email: string) => sha256(email.trim().toLowerCase());
 
 /** 強制退会したアドレスか。招待とメールアドレスの変更先で確かめる */
 export async function isBlocked(db: D1Database, email: string): Promise<boolean> {
-  return (await db.prepare("SELECT 1 FROM blocked_emails WHERE email_hash = ?").bind(await emailHash(email)).first()) !== null;
+  return (
+    (await db
+      .prepare("SELECT 1 FROM blocked_emails WHERE email_hash = ?")
+      .bind(await emailHash(email))
+      .first()) !== null
+  );
 }
 
 /**
@@ -39,7 +44,10 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
     env.DB.prepare("DELETE FROM email_changes WHERE user_id = ?").bind(userId),
     env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, userId),
     // この人が送った、まだ使われていない招待は取り消す
-    env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND created_by = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, userId),
+    env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND created_by = ? AND used_at IS NULL AND revoked_at IS NULL").bind(
+      now,
+      userId,
+    ),
     // 招待の記録やログイン失敗の記録に残る元のアドレスも消す
     env.DB.prepare("UPDATE auth_tokens SET email = ? WHERE kind = 'invite' AND email = ?").bind(placeholder, user.email),
     env.DB.prepare("DELETE FROM login_failures WHERE email = ?").bind(user.email),

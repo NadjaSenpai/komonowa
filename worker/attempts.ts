@@ -3,7 +3,10 @@
  * 先に試しを記録してから数える。D1 は batch を順に処理するので、同時に来ても limit を超えた分は確かめずに断れる
  * （「数える → 確かめる → 記録する」だと、同時に送られると数え終わる前に何回も試せてしまう）
  */
-type AttemptTable = { table: "login_failures"; column: "email" } | { table: "share_passcode_failures"; column: "article_id" } | { table: "reauth_failures"; column: "user_id" };
+type AttemptTable =
+  | { table: "login_failures"; column: "email" }
+  | { table: "share_passcode_failures"; column: "article_id" }
+  | { table: "reauth_failures"; column: "user_id" };
 
 /** 試してよければ記録の rowid を、limit を超えていれば null を返す（そのときは記録を残さない） */
 export async function takeAttempt(db: D1Database, where: AttemptTable, key: string, windowMs: number, limit: number): Promise<number | null> {

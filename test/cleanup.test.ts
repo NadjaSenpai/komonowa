@@ -14,11 +14,21 @@ describe("期限切れの記録の掃除（毎日の cron）", () => {
     const uid = member.user.id;
     await env.DB.batch([
       env.DB.prepare("INSERT INTO sessions (id_hash, user_id, expires_at, created_at) VALUES ('old-session', ?, ?, ?)").bind(uid, now - 1000, now),
-      env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, new_email, expires_at, created_at) VALUES ('old-change', ?, 'a@example.com', ?, ?)").bind(uid, now - 1000, now),
-      env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, new_email, expires_at, created_at) VALUES ('live-change', ?, 'b@example.com', ?, ?)").bind(uid, now + DAY, now),
+      env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, new_email, expires_at, created_at) VALUES ('old-change', ?, 'a@example.com', ?, ?)").bind(
+        uid,
+        now - 1000,
+        now,
+      ),
+      env.DB.prepare(
+        "INSERT INTO email_changes (token_hash, user_id, new_email, expires_at, created_at) VALUES ('live-change', ?, 'b@example.com', ?, ?)",
+      ).bind(uid, now + DAY, now),
       // 招待の一覧に履歴として出すので、期限から 30 日は残す
-      env.DB.prepare("INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES ('recent-invite', 'invite', 'c@example.com', 'member', ?, ?, ?)").bind(uid, now - DAY, now),
-      env.DB.prepare("INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES ('old-invite', 'invite', 'd@example.com', 'member', ?, ?, ?)").bind(uid, now - 31 * DAY, now),
+      env.DB.prepare(
+        "INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES ('recent-invite', 'invite', 'c@example.com', 'member', ?, ?, ?)",
+      ).bind(uid, now - DAY, now),
+      env.DB.prepare(
+        "INSERT INTO auth_tokens (token_hash, kind, email, role, created_by, expires_at, created_at) VALUES ('old-invite', 'invite', 'd@example.com', 'member', ?, ?, ?)",
+      ).bind(uid, now - 31 * DAY, now),
       env.DB.prepare("INSERT INTO login_failures (email, created_at) VALUES ('typo@example.com', ?)").bind(now - 2 * DAY),
       env.DB.prepare("INSERT INTO login_failures (email, created_at) VALUES ('now@example.com', ?)").bind(now),
     ]);

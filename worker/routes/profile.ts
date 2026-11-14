@@ -97,9 +97,7 @@ profile.put("/avatar", async (c) => {
   const avatarId = crypto.randomUUID();
   await c.env.FILES.put(avatarKey(userId, avatarId), bytes, { httpMetadata: { contentType: type } });
   try {
-    await c.env.DB.prepare("UPDATE users SET avatar_id = ?, avatar_type = ?, updated_at = ? WHERE id = ?")
-      .bind(avatarId, type, Date.now(), userId)
-      .run();
+    await c.env.DB.prepare("UPDATE users SET avatar_id = ?, avatar_type = ?, updated_at = ? WHERE id = ?").bind(avatarId, type, Date.now(), userId).run();
   } catch (err) {
     await c.env.FILES.delete(avatarKey(userId, avatarId));
     throw err;
@@ -122,9 +120,7 @@ avatars.use("*", requireAuth);
 
 avatars.get("/:id", async (c) => {
   const avatarId = c.req.param("id");
-  const row = await c.env.DB.prepare("SELECT id, avatar_type FROM users WHERE avatar_id = ?")
-    .bind(avatarId)
-    .first<{ id: string; avatar_type: string }>();
+  const row = await c.env.DB.prepare("SELECT id, avatar_type FROM users WHERE avatar_id = ?").bind(avatarId).first<{ id: string; avatar_type: string }>();
   if (!row) fail(404, "画像が見つかりません");
   const object = await c.env.FILES.get(avatarKey(row.id, avatarId));
   if (!object) fail(404, "画像が見つかりません");

@@ -6,9 +6,7 @@ import { WelcomeNotice } from "../WelcomeNotice";
 
 function render(state: unknown) {
   const root = document.createElement("div");
-  root.innerHTML = renderToStaticMarkup(
-    createElement(MemoryRouter, { initialEntries: [{ pathname: "/", state }] }, createElement(WelcomeNotice)),
-  );
+  root.innerHTML = renderToStaticMarkup(createElement(MemoryRouter, { initialEntries: [{ pathname: "/", state }] }, createElement(WelcomeNotice)));
   return root;
 }
 

@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Client, adminClient, createArticle, json, memberClient } from "./helpers";
 
 const shareOf = async (c: Client, id: string) => (await json(await c.get(`/api/articles/${id}`))).share;
-const rowCount = async (id: string) =>
-  (await env.DB.prepare("SELECT COUNT(*) AS n FROM article_shares WHERE article_id = ?").bind(id).first<number>("n")) ?? 0;
+const rowCount = async (id: string) => (await env.DB.prepare("SELECT COUNT(*) AS n FROM article_shares WHERE article_id = ?").bind(id).first<number>("n")) ?? 0;
 
 describe("共有の開始と停止", () => {
   it("未ログインでは共有を始めたり止めたりできない", async () => {

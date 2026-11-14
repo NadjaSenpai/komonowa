@@ -51,7 +51,6 @@ async function sharedArticle(db: D1Database, token: string) {
   return row;
 }
 
-
 function needsPasscode(c: Context<AppEnv>, error: string) {
   return c.json({ error, needsPasscode: true }, 403);
 }

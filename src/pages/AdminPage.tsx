@@ -137,11 +137,17 @@ export function AdminPage() {
   return (
     <div className="admin">
       <h1>管理</h1>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       {sent && (
         <p className="notice" role="status">
           {sent}{" "}
-          <button type="button" className="link small" onClick={() => setSent("")}>閉じる</button>
+          <button type="button" className="link small" onClick={() => setSent("")}>
+            閉じる
+          </button>
         </p>
       )}
 
@@ -158,12 +164,23 @@ export function AdminPage() {
             <option value={72}>3日</option>
             <option value={168}>7日</option>
           </select>
-          <button type="submit" disabled={sending}>{sending ? "送信中…" : "招待メールを送る"}</button>
+          <button type="submit" disabled={sending}>
+            {sending ? "送信中…" : "招待メールを送る"}
+          </button>
         </form>
         {shownInvites.length === 0 && <p className="muted small">返事待ちの招待はありません</p>}
         {shownInvites.length > 0 && (
           <table>
-            <thead><tr><th>メール</th><th>権限</th><th>状態</th><th>期限</th><th>発行者</th><th /></tr></thead>
+            <thead>
+              <tr>
+                <th>メール</th>
+                <th>権限</th>
+                <th>状態</th>
+                <th>期限</th>
+                <th>発行者</th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
               {shownInvites.map((i) => (
                 <tr key={i.id}>
@@ -176,7 +193,9 @@ export function AdminPage() {
                     <div className="actions">
                       {/* 届かなかった・期限が切れたときは送り直す（同じアドレスの最新の未使用・期限切れだけ） */}
                       {openIds.has(i.id) && (
-                        <button type="button" className="secondary small" disabled={sending} onClick={() => resendInvite(i)}>再送</button>
+                        <button type="button" className="secondary small" disabled={sending} onClick={() => resendInvite(i)}>
+                          再送
+                        </button>
                       )}
                       {inviteStatus(i) === "未使用" && (
                         <button type="button" className="secondary small" onClick={() => run(() => api.del(`/admin/invites/${encodeURIComponent(i.id)}`))}>
@@ -202,13 +221,23 @@ export function AdminPage() {
       <section>
         <h2>メンバー</h2>
         <table>
-          <thead><tr><th>名前</th><th>メール</th><th>権限</th><th>状態</th><th>登録日</th><th /></tr></thead>
+          <thead>
+            <tr>
+              <th>名前</th>
+              <th>メール</th>
+              <th>権限</th>
+              <th>状態</th>
+              <th>登録日</th>
+              <th />
+            </tr>
+          </thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className={u.status === "disabled" ? "muted" : ""}>
                 <td>
                   <Byline userId={u.id} name={u.name} avatarId={u.avatar_id}>
-                    {u.name}{u.id === user?.id && <span className="muted small">（自分）</span>}
+                    {u.name}
+                    {u.id === user?.id && <span className="muted small">（自分）</span>}
                   </Byline>
                 </td>
                 <td>{u.email}</td>
@@ -235,14 +264,21 @@ export function AdminPage() {
                   <div className="actions">
                     {u.id !== user?.id && u.status === "active" && (
                       <>
-                        <button type="button" className="secondary small" disabled={sending} onClick={() => resetLink(u)}>再設定メールを送る</button>
-                        {!u.is_owner && <button
-                          type="button"
-                          className="danger small"
-                          onClick={() => confirm(`${u.name} さんを無効化しますか？ログイン中のセッションも切断されます。記事は残ります。`) && run(() => api.patch(`/admin/users/${u.id}`, { status: "disabled" }))}
-                        >
-                          無効化
-                        </button>}
+                        <button type="button" className="secondary small" disabled={sending} onClick={() => resetLink(u)}>
+                          再設定メールを送る
+                        </button>
+                        {!u.is_owner && (
+                          <button
+                            type="button"
+                            className="danger small"
+                            onClick={() =>
+                              confirm(`${u.name} さんを無効化しますか？ログイン中のセッションも切断されます。記事は残ります。`) &&
+                              run(() => api.patch(`/admin/users/${u.id}`, { status: "disabled" }))
+                            }
+                          >
+                            無効化
+                          </button>
+                        )}
                       </>
                     )}
                     {u.status === "disabled" && (
@@ -256,8 +292,9 @@ export function AdminPage() {
                         type="button"
                         className="danger small"
                         onClick={() =>
-                          confirm(`${u.name} さんを強制退会しますか？名前・メールアドレス・アイコンが消え、同じメールアドレスでは招待できなくなります。記事は「（削除されたユーザー）」の名前で残ります。取り消せません。`) &&
-                          run(() => api.post(`/admin/users/${u.id}/remove`))
+                          confirm(
+                            `${u.name} さんを強制退会しますか？名前・メールアドレス・アイコンが消え、同じメールアドレスでは招待できなくなります。記事は「（削除されたユーザー）」の名前で残ります。取り消せません。`,
+                          ) && run(() => api.post(`/admin/users/${u.id}/remove`))
                         }
                       >
                         強制退会
@@ -280,8 +317,12 @@ export function AdminPage() {
             <tbody>
               {shares.map((sh) => (
                 <tr key={sh.article_id}>
-                  <td><Link to={`/articles/${sh.article_id}`}>{sh.title}</Link></td>
-                  <td>{formatDate(sh.created_at)} {sh.created_by_name} が共有</td>
+                  <td>
+                    <Link to={`/articles/${sh.article_id}`}>{sh.title}</Link>
+                  </td>
+                  <td>
+                    {formatDate(sh.created_at)} {sh.created_by_name} が共有
+                  </td>
                   <td>{sh.has_passcode ? "パスワードあり" : ""}</td>
                   <td>
                     <div className="actions">
@@ -310,14 +351,21 @@ export function AdminPage() {
               {trash.map((a) => (
                 <tr key={a.id}>
                   <td>{a.title}</td>
-                  <td>{formatDate(a.deleted_at)} {a.deleted_by_name} が削除</td>
+                  <td>
+                    {formatDate(a.deleted_at)} {a.deleted_by_name} が削除
+                  </td>
                   <td>
                     <div className="actions">
-                      <button type="button" className="small" onClick={() => run(() => api.post(`/admin/trash/${a.id}/restore`))}>復元</button>
+                      <button type="button" className="small" onClick={() => run(() => api.post(`/admin/trash/${a.id}/restore`))}>
+                        復元
+                      </button>
                       <button
                         type="button"
                         className="danger small"
-                        onClick={() => confirm(`「${a.title}」を完全に削除しますか？履歴と添付ファイルも消え、元に戻せません。`) && run(() => api.del(`/admin/trash/${a.id}`))}
+                        onClick={() =>
+                          confirm(`「${a.title}」を完全に削除しますか？履歴と添付ファイルも消え、元に戻せません。`) &&
+                          run(() => api.del(`/admin/trash/${a.id}`))
+                        }
                       >
                         完全削除
                       </button>

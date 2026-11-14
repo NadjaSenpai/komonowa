@@ -4,9 +4,7 @@ import { Client, adminClient, createArticle, json, memberClient } from "./helper
 type Link = { key: string; id: string | null };
 
 async function view(c: Client, id: string) {
-  return json<{ links: Link[]; backlinks: { id: string; title: string; updated_at: number }[] }>(
-    await c.get(`/api/articles/${id}`),
-  );
+  return json<{ links: Link[]; backlinks: { id: string; title: string; updated_at: number }[] }>(await c.get(`/api/articles/${id}`));
 }
 
 const byKey = (links: Link[]) => [...links].sort((a, b) => a.key.localeCompare(b.key));

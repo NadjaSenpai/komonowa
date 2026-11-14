@@ -72,15 +72,78 @@ export function App() {
         <Route path="/reset" element={<ResetPage />} />
         <Route path="/email" element={<EmailConfirmPage />} />
         <Route path="/help" element={<HelpRoute />} />
-        <Route path="/" element={<Protected><ArticleListPage /></Protected>} />
-        <Route path="/articles/new" element={<Protected><ArticleEditPage /></Protected>} />
-        <Route path="/articles/:id" element={<Protected><ArticleViewPage /></Protected>} />
-        <Route path="/articles/:id/edit" element={<Protected><ArticleEditPage /></Protected>} />
-        <Route path="/articles/:id/history" element={<Protected><HistoryPage /></Protected>} />
-        <Route path="/wiki/:title" element={<Protected><WikiLinkPage /></Protected>} />
-        <Route path="/account" element={<Protected><AccountPage /></Protected>} />
-        <Route path="/admin" element={<Protected admin><AdminPage /></Protected>} />
-        <Route path="*" element={<Protected><p>ページが見つかりません。</p></Protected>} />
+        <Route
+          path="/"
+          element={
+            <Protected>
+              <ArticleListPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/articles/new"
+          element={
+            <Protected>
+              <ArticleEditPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/articles/:id"
+          element={
+            <Protected>
+              <ArticleViewPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/articles/:id/edit"
+          element={
+            <Protected>
+              <ArticleEditPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/articles/:id/history"
+          element={
+            <Protected>
+              <HistoryPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/wiki/:title"
+          element={
+            <Protected>
+              <WikiLinkPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/account"
+          element={
+            <Protected>
+              <AccountPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <Protected admin>
+              <AdminPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <Protected>
+              <p>ページが見つかりません。</p>
+            </Protected>
+          }
+        />
       </Routes>
     </AuthContext.Provider>
   );
@@ -90,23 +153,37 @@ function Protected({ children, admin = false }: { children: ReactNode; admin?: b
   const { user } = useAuth();
   const location = useLocation();
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
-  if (admin && user.role !== "admin") return <Layout><p>管理者のみ表示できます。</p></Layout>;
+  if (admin && user.role !== "admin")
+    return (
+      <Layout>
+        <p>管理者のみ表示できます。</p>
+      </Layout>
+    );
   return <Layout>{children}</Layout>;
 }
 
 /** ヘルプはログインしていなくても読める（ログイン画面・招待画面から開けるように） */
 function HelpRoute() {
   const { user } = useAuth();
-  if (user) return <Layout><HelpPage /></Layout>;
+  if (user)
+    return (
+      <Layout>
+        <HelpPage />
+      </Layout>
+    );
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand">komonowa</Link>
+        <Link to="/" className="brand">
+          komonowa
+        </Link>
         <nav>
           <NavLink to="/login">ログイン</NavLink>
         </nav>
       </header>
-      <Content><HelpPage /></Content>
+      <Content>
+        <HelpPage />
+      </Content>
     </div>
   );
 }
@@ -117,9 +194,13 @@ function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand">komonowa</Link>
+        <Link to="/" className="brand">
+          komonowa
+        </Link>
         <nav>
-          <NavLink to="/" end>記事</NavLink>
+          <NavLink to="/" end>
+            記事
+          </NavLink>
           {user?.role === "admin" && <NavLink to="/admin">管理</NavLink>}
           <NavLink to="/help">ヘルプ</NavLink>
           {user && (
@@ -139,7 +220,9 @@ function Layout({ children }: { children: ReactNode }) {
             ログアウト
           </button>
         </nav>
-        <Link to="/articles/new" className="button small new-article">新しい記事</Link>
+        <Link to="/articles/new" className="button small new-article">
+          新しい記事
+        </Link>
       </header>
       <Content>{children}</Content>
     </div>

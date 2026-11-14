@@ -71,7 +71,9 @@ auth.post("/login", async (c) => {
 auth.post("/logout", async (c) => {
   const token = getCookie(c, SESSION_COOKIE);
   if (token) {
-    await c.env.DB.prepare("DELETE FROM sessions WHERE id_hash = ?").bind(await sha256(token)).run();
+    await c.env.DB.prepare("DELETE FROM sessions WHERE id_hash = ?")
+      .bind(await sha256(token))
+      .run();
   }
   clearSessionCookie(c);
   return c.json({ ok: true });
