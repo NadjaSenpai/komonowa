@@ -4,7 +4,7 @@ import { useAuth } from "../App";
 import { api, errorMessage, formatDate, formatSize, type Article, type Attachment } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
-import { ACCEPT, attachmentMarkdown, uploadAttachment } from "../upload";
+import { ACCEPT, uploadAttachment } from "../upload";
 
 
 export function ArticleViewPage() {
@@ -107,9 +107,6 @@ export function ArticleViewPage() {
             <li key={a.id}>
               <a href={`/api/attachments/${a.id}`} target="_blank" rel="noopener">{a.filename}</a>
               <span className="muted small"> {formatSize(a.size)} · {a.uploaded_by_name}</span>
-              <button type="button" className="link small" onClick={() => navigator.clipboard?.writeText(attachmentMarkdown(a))}>
-                Markdown をコピー
-              </button>
               {(a.uploaded_by === user?.id || user?.role === "admin") && (
                 <button type="button" className="link small danger-text" onClick={() => removeAttachment(a)}>削除</button>
               )}
