@@ -63,6 +63,8 @@ admin.patch("/users/:id", async (c) => {
   if (status === "disabled") {
     await revokeUserSessions(c.env.DB, id);
     await c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(Date.now(), id).run();
+    // この人が始めた共有は止める（強制退会と同じ。再有効化しても戻らず、始め直すと新しい URL になる）
+    await c.env.DB.prepare("DELETE FROM article_shares WHERE created_by = ?").bind(id).run();
   }
   return c.json({ ok: true });
 });

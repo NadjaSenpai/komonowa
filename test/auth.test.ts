@@ -195,6 +195,29 @@ describe("パスワード再設定と無効化", () => {
     expect(n).toBe(1);
   });
 
+  it("無効化した人が始めた外部共有は止まり、再有効化しても戻らない（降格では止まらない）", async () => {
+    const admin = await adminClient();
+    const leaver = await memberClient(admin, "admin");
+    const stayer = await memberClient(admin);
+    const share = async (c: Client, title: string) => {
+      const { article } = await json(await c.post("/api/articles", { title, body: "本文", tags: [] }));
+      const { share } = await json(await c.post(`/api/articles/${article.id}/share`));
+      return `/api/share/${(share.url as string).split("/s/")[1]}`;
+    };
+    const left = await share(leaver.client, "去る人の共有");
+    const kept = await share(stayer.client, "残る人の共有");
+
+    expect((await admin.patch(`/api/admin/users/${leaver.user.id}`, { role: "member" })).status).toBe(200);
+    expect((await new Client().get(left)).status).toBe(200);
+
+    expect((await admin.patch(`/api/admin/users/${leaver.user.id}`, { status: "disabled" })).status).toBe(200);
+    expect((await new Client().get(left)).status).toBe(404);
+    expect((await new Client().get(kept)).status).toBe(200);
+
+    expect((await admin.patch(`/api/admin/users/${leaver.user.id}`, { status: "active" })).status).toBe(200);
+    expect((await new Client().get(left)).status).toBe(404);
+  });
+
   it("無効化・降格した管理者が送った未使用の招待は使えなくなる", async () => {
     const admin = await adminClient();
     for (const change of [{ status: "disabled" }, { role: "member" }]) {
