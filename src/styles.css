@@ -183,6 +183,13 @@ button.link:hover { background: none; text-decoration: underline; }
 .article-body h3 { font-size: var(--text-md); margin: var(--space-lg) 0 var(--space-xs); }
 .article-page .attachments { margin-top: var(--space-2xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); }
 .article-page .attachments h2 { margin-top: 0; font-size: var(--text-md); }
+/* [[タイトル]]：まだない記事へのリンクは薄い色と点線で、押すとその記事を書き始められる */
+.wikilink.missing { color: var(--color-muted); text-decoration-style: dotted; }
+.wikilink.missing:hover { color: var(--color-accent); }
+.article-page .backlinks { margin-top: var(--space-2xl); padding-top: var(--space-lg); border-top: 1px solid var(--color-rule); }
+.article-page .backlinks h2 { margin-top: 0; font-size: var(--text-md); }
+.backlinks .article-list li { padding: var(--space-sm) 0; }
+.backlinks .article-list .title { font-size: var(--text-md); }
 
 .markdown { background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); padding: var(--space-md) var(--space-lg); overflow-wrap: anywhere; }
 .markdown img { max-width: 100%; height: auto; }

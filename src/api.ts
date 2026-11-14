@@ -57,6 +57,19 @@ export interface Article {
   updated_by_avatar: string | null;
 }
 
+/** 本文の [[タイトル]] のリンク先。id が null なら「まだない記事」 */
+export interface WikiLink {
+  key: string;
+  id: string | null;
+}
+
+/** この記事にリンクしている記事 */
+export interface Backlink {
+  id: string;
+  title: string;
+  updated_at: number;
+}
+
 export interface Attachment {
   id: string;
   filename: string;

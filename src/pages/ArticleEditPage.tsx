@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent } from "react";
-import { useBlocker, useNavigate, useParams } from "react-router";
+import { useBlocker, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError, api, errorMessage, type Article } from "../api";
 import { renderMarkdown } from "../markdown";
 import { ACCEPT, attachmentMarkdown, namePastedFile, referencedIds, uploadAttachment } from "../upload";
@@ -14,7 +14,9 @@ function parseTags(input: string) {
 export function ArticleEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [title, setTitle] = useState("");
+  // [[まだない記事]] から来たときは、そのタイトルを入れておく（未保存の変更として扱う）
+  const [searchParams] = useSearchParams();
+  const [title, setTitle] = useState(() => (id ? "" : (searchParams.get("title") ?? "")));
   const [body, setBody] = useState("");
   const [tags, setTags] = useState("");
   const [baseVersion, setBaseVersion] = useState(0);

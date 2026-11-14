@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api, errorMessage, formatDate, type Article } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
+import { useInternalLinks } from "../useInternalLinks";
 
 interface RevisionSummary {
   version: number;
@@ -24,6 +25,7 @@ const ACTIONS = { create: "作成", edit: "編集", restore: "復元" };
 export function HistoryPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const onBodyClick = useInternalLinks();
   const [article, setArticle] = useState<Article | null>(null);
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [selected, setSelected] = useState<Revision | null>(null);
@@ -105,7 +107,7 @@ export function HistoryPage() {
           <section className="revision">
             <h2>第{selected.version}版：{selected.title}</h2>
             <p className="meta">{selected.tags.map((t) => `#${t}`).join(" ")}</p>
-            <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />
+            <div className="markdown" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
           </section>
         )}
       </div>

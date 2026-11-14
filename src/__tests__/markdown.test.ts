@@ -45,3 +45,20 @@ describe("markdownToText", () => {
     expect(markdownToText("<b>太字</b>と<script>alert(1)</script>本文")).toBe("太字と本文");
   });
 });
+
+describe("[[タイトル]]", () => {
+  it("[[ ]] をアプリ内リンクにする", () => {
+    expect(renderMarkdown("[[a/b?c]]")).toContain('<a href="/wiki/a%2Fb%3Fc" class="wikilink">a/b?c</a>');
+  });
+
+  it("リンク文字列の HTML はエスケープする", () => {
+    const html = renderMarkdown("[[<img src=x onerror=alert(1)>]]");
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    expect(doc.querySelector("img")).toBeNull();
+    expect(doc.querySelector("a.wikilink")?.textContent).toBe("<img src=x onerror=alert(1)>");
+  });
+
+  it("コードの中は描画しない", () => {
+    expect(renderMarkdown("`[[a]]`")).not.toContain("wikilink");
+  });
+});

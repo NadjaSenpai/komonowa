@@ -1,7 +1,10 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import { wikiLinkExtension } from "../shared/wikilinks";
 
 marked.setOptions({ gfm: true, breaks: true });
+// [[タイトル]] を記事間リンクにする（shared/wikilinks.ts。保存時のリンク解析と同じ判定）
+marked.use({ extensions: [wikiLinkExtension] });
 
 // 外部リンクは新しいタブで開き、参照元を渡さない
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {

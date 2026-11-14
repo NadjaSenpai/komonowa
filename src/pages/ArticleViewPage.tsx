@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAuth } from "../App";
-import { api, errorMessage, formatDate, formatSize, type Article, type Attachment } from "../api";
+import { api, errorMessage, formatDate, formatSize, type Article, type Attachment, type Backlink, type WikiLink } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 import { ACCEPT, uploadAttachment } from "../upload";
+import { useInternalLinks } from "../useInternalLinks";
+import { titleKey } from "../../shared/wikilinks";
 
+/** リンク先の記事がない [[タイトル]] に missing を付ける（Cosense の未作成リンクのように薄く見せる） */
+function markMissingLinks(html: string, links: WikiLink[]): string {
+  const missing = new Set(links.filter((l) => l.id === null).map((l) => l.key));
+  if (missing.size === 0) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("a.wikilink").forEach((a) => {
+    if (missing.has(titleKey(a.textContent ?? ""))) a.classList.add("missing");
+  });
+  return doc.body.innerHTML;
+}
 
 export function ArticleViewPage() {
   const { id = "" } = useParams();
@@ -13,23 +25,29 @@ export function ArticleViewPage() {
   const navigate = useNavigate();
   const [article, setArticle] = useState<Article | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [links, setLinks] = useState<WikiLink[]>([]);
+  const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const [error, setError] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const onBodyClick = useInternalLinks();
 
   const load = useCallback(() => {
+    setError("");
     api
-      .get<{ article: Article; attachments: Attachment[] }>(`/articles/${id}`)
+      .get<{ article: Article; attachments: Attachment[]; links: WikiLink[]; backlinks: Backlink[] }>(`/articles/${id}`)
       .then((r) => {
         setArticle(r.article);
         setAttachments(r.attachments);
+        setLinks(r.links);
+        setBacklinks(r.backlinks);
       })
       .catch((err) => setError(errorMessage(err)));
   }, [id]);
 
   useEffect(load, [load]);
-  const html = useMemo(() => (article ? renderMarkdown(article.body) : ""), [article]);
+  const html = useMemo(() => (article ? markMissingLinks(renderMarkdown(article.body), links) : ""), [article, links]);
 
   if (error) return <p className="error">{error}</p>;
   if (!article) return <p className="muted">読み込み中…</p>;
@@ -97,7 +115,21 @@ export function ArticleViewPage() {
         )}
         <span className="meta-item">第{article.version}版</span>
       </p>
-      <div className="markdown article-body" dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="markdown article-body" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
+
+      {backlinks.length > 0 && (
+        <section className="backlinks">
+          <h2>このページにリンクしているページ</h2>
+          <ul className="article-list">
+            {backlinks.map((b) => (
+              <li key={b.id}>
+                <Link to={`/articles/${b.id}`} className="title">{b.title}</Link>
+                <p className="meta"><span className="meta-item">{formatDate(b.updated_at)} 更新</span></p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="attachments">
         <h2>添付ファイル</h2>

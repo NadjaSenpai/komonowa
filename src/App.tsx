@@ -9,6 +9,7 @@ import { ArticleListPage } from "./pages/ArticleListPage";
 import { ArticleViewPage } from "./pages/ArticleViewPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
+import { WikiLinkPage } from "./pages/WikiLinkPage";
 
 interface AuthState {
   user: User | null;
@@ -58,6 +59,7 @@ export function App() {
         <Route path="/articles/:id" element={<Protected><ArticleViewPage /></Protected>} />
         <Route path="/articles/:id/edit" element={<Protected><ArticleEditPage /></Protected>} />
         <Route path="/articles/:id/history" element={<Protected><HistoryPage /></Protected>} />
+        <Route path="/wiki/:title" element={<Protected><WikiLinkPage /></Protected>} />
         <Route path="/account" element={<Protected><AccountPage /></Protected>} />
         <Route path="/admin" element={<Protected admin><AdminPage /></Protected>} />
         <Route path="*" element={<Protected><p>ページが見つかりません。</p></Protected>} />
