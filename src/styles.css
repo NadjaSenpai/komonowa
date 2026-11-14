@@ -199,8 +199,10 @@ button.link:hover { background: none; text-decoration: underline; }
   .article-layout { grid-template-columns: minmax(0, 760px) minmax(0, 270px); gap: var(--space-2xl); align-items: start; }
   /* スクロールしても画面についてくる。欄が長いときは欄の中だけスクロールする */
   .article-aside { position: sticky; top: var(--space-lg); max-height: calc(100dvh - 2 * var(--space-lg)); overflow-y: auto; }
-  .article-aside > :first-child { margin-top: 0; padding-top: 0; border-top: none; }
   .article-page .article-aside > :is(.backlinks, .attachments) { margin-top: var(--space-lg); }
+  /* 右欄のいちばん上（目次・被リンクがない記事では添付）には区切り線と上の余白を付けない。
+     .article-page .attachments（後ろで定義）や上の行より強くするため、セレクタを1段重くしている */
+  .article-page .article-aside > :first-child:is(*, .backlinks, .attachments) { margin-top: 0; padding-top: 0; border-top: none; }
   .toc-inline { display: none; }
 }
 /* 本文はカードに入れず、紙の上に直接組む */
