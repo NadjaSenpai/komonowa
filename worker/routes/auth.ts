@@ -122,14 +122,30 @@ auth.post("/invite/accept", async (c) => {
   if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(row.email).first()) {
     fail(409, "このメールアドレスはすでに登録されています");
   }
-  await consumeToken(c.env.DB, row.token_hash);
   const id = crypto.randomUUID();
   const now = Date.now();
-  await c.env.DB.prepare(
-    "INSERT INTO users (id, email, name, password_hash, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
-  )
-    .bind(id, row.email, name, hash, row.role ?? "member", now, now)
-    .run();
+  // 利用者の作成とトークンの消費を 1 つのトランザクションで行う（作成に失敗したのにトークンだけ使えなくなる、を防ぐ）。
+  // トークンがまだ有効なときだけ作るので、同時に使われた場合は片方だけ成功する
+  let created: D1Result[];
+  try {
+    created = await c.env.DB.batch([
+      c.env.DB.prepare(
+        `INSERT INTO users (id, email, name, password_hash, role, status, created_at, updated_at)
+         SELECT ?, ?, ?, ?, ?, 'active', ?, ?
+          WHERE EXISTS (SELECT 1 FROM auth_tokens WHERE token_hash = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?)`,
+      ).bind(id, row.email, name, hash, row.role ?? "member", now, now, row.token_hash, now),
+      c.env.DB.prepare("UPDATE auth_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?").bind(
+        now,
+        row.token_hash,
+        now,
+      ),
+    ]);
+  } catch (err) {
+    // 確かめた直後にほかの人が同じアドレスで登録した
+    if (err instanceof Error && err.message.includes("UNIQUE")) fail(409, "このメールアドレスはすでに登録されています");
+    throw err;
+  }
+  if (created[0]!.meta.changes === 0) fail(410, "リンクが無効か期限切れです。管理者に再発行を依頼してください");
   await createSession(c, id);
   return c.json({ user: { id, email: row.email, name, role: row.role ?? "member", avatar_id: null } }, 201);
 });

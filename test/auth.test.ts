@@ -177,6 +177,20 @@ describe("パスワード再設定と無効化", () => {
     expect((await new Client().post("/api/auth/login", { email: member.email, password: member.password })).status).toBe(200);
   });
 
+  it("同じ招待を同時に使っても登録されるのは1人だけ", async () => {
+    const admin = await adminClient();
+    await admin.post("/api/admin/invites", { email: "race@example.com" });
+    const token = tokenFrom(lastMail());
+    const results = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => new Client().post("/api/auth/invite/accept", { token, name: `同時${i}`, password: "race-password-123" })),
+    );
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses.filter((s) => s === 201)).toHaveLength(1);
+    expect(statuses.every((s) => s === 201 || s === 409 || s === 410)).toBe(true);
+    const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE email = 'race@example.com'").first<{ n: number }>())!;
+    expect(n).toBe(1);
+  });
+
   it("無効化・降格した管理者が送った未使用の招待は使えなくなる", async () => {
     const admin = await adminClient();
     for (const change of [{ status: "disabled" }, { role: "member" }]) {
