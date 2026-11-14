@@ -368,6 +368,8 @@ tr.selected { background: var(--color-selected); }
 }
 @media (pointer: coarse) {
   button, .button, input, select { min-height: var(--hit); }
+  /* iPhone は 16px 未満の入力欄にフォーカスすると画面を拡大し、ログイン後もずれたまま残る（label の 14px を継いでいた） */
+  input, select, textarea { font-size: max(16px, 1em); }
   button.small, .button.small { min-height: var(--hit); }
   .tag { min-height: var(--hit); }
   .markup-toolbar button, .markup-more summary { min-height: var(--hit); }
