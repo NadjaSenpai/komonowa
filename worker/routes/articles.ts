@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
+import { randomToken } from "../crypto";
 import { fail, int, readJson, str } from "../http";
 import { requireAuth } from "../session";
 import { extractWikiLinks, titleKey } from "../../shared/wikilinks";
@@ -283,7 +284,13 @@ articles.get("/:id", async (c) => {
         ORDER BY a.updated_at DESC, a.rowid DESC`,
     ).bind(article.id, article.id),
   ]);
-  return c.json({ article, attachments: attachments!.results, links: links!.results, backlinks: backlinks!.results });
+  return c.json({
+    article,
+    attachments: attachments!.results,
+    links: links!.results,
+    backlinks: backlinks!.results,
+    share: await findShare(c.env.DB, article.id, new URL(c.req.url).origin),
+  });
 });
 
 async function update(
@@ -320,10 +327,48 @@ articles.put("/:id", async (c) => {
 });
 
 articles.delete("/:id", async (c) => {
-  const res = await c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL")
-    .bind(Date.now(), c.var.user.id, c.req.param("id"))
+  const id = c.req.param("id");
+  // ごみ箱に入れたら共有も止める（戻したときに、忘れていた共有が勝手に再開しないように）
+  const [res] = await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL").bind(Date.now(), c.var.user.id, id),
+    c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ? AND EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NOT NULL)").bind(id, id),
+  ]);
+  if (res!.meta.changes === 0) fail(404, "記事が見つかりません");
+  return c.json({ ok: true });
+});
+
+/** 共有中なら共有 URL と始めた人。共有ページは /s/<token>（worker/routes/share.ts） */
+async function findShare(db: D1Database, articleId: string, origin: string) {
+  const row = await db
+    .prepare(
+      `SELECT s.token, s.created_at, u.name AS created_by_name FROM article_shares s JOIN users u ON u.id = s.created_by WHERE s.article_id = ?`,
+    )
+    .bind(articleId)
+    .first<{ token: string; created_at: number; created_by_name: string }>();
+  return row ? { url: `${origin}/s/${row.token}`, created_at: row.created_at, created_by_name: row.created_by_name } : null;
+}
+
+/** 共有を始める。メンバーなら誰でも、どの記事でも。すでに共有中ならその共有を返す */
+articles.post("/:id/share", async (c) => {
+  const id = c.req.param("id");
+  const res = await c.env.DB.prepare(
+    `INSERT INTO article_shares (article_id, token, created_by, created_at)
+     SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL)
+     ON CONFLICT (article_id) DO NOTHING`,
+  )
+    .bind(id, randomToken(), c.var.user.id, Date.now(), id)
     .run();
-  if (res.meta.changes === 0) fail(404, "記事が見つかりません");
+  const share = await findShare(c.env.DB, id, new URL(c.req.url).origin);
+  if (!share || !(await c.env.DB.prepare("SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL").bind(id).first())) {
+    fail(404, "記事が見つかりません");
+  }
+  return c.json({ share }, res.meta.changes > 0 ? 201 : 200);
+});
+
+/** 共有を止める。行を消すので、その URL はすぐ見えなくなる */
+articles.delete("/:id/share", async (c) => {
+  const res = await c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ?").bind(c.req.param("id")).run();
+  if (res.meta.changes === 0) fail(404, "共有されていません");
   return c.json({ ok: true });
 });
 

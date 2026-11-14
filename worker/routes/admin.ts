@@ -183,6 +183,22 @@ admin.delete("/trash/:id", async (c) => {
 
 // ---- タグ ----
 
+/** 共有中の記事。管理者はほかの人の共有も止められる */
+admin.get("/shares", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT s.article_id, a.title, s.created_at, u.name AS created_by_name
+       FROM article_shares s JOIN articles a ON a.id = s.article_id JOIN users u ON u.id = s.created_by
+      ORDER BY s.created_at DESC`,
+  ).all();
+  return c.json({ shares: results });
+});
+
+admin.delete("/shares/:articleId", async (c) => {
+  const res = await c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ?").bind(c.req.param("articleId")).run();
+  if (res.meta.changes === 0) fail(404, "共有されていません");
+  return c.json({ ok: true });
+});
+
 admin.patch("/tags/:id", async (c) => {
   const body = await readJson(c);
   const name = str(body, "name", { max: 40, label: "タグ名" }).normalize("NFKC");
