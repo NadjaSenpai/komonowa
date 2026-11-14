@@ -72,6 +72,20 @@ describe("記事", () => {
     const article = await createArticle(admin);
     expect((await admin.put(`/api/articles/${article.id}`, { title: "x", body: "" })).status).toBe(400);
   });
+
+  it("タイトルに半角の [ ] は使えない（[[ ]] でリンクできなくなるため）。全角の［］は使える", async () => {
+    const admin = await adminClient();
+    const message = "タイトルに [ ] は使えません。［ ］（全角）なら使えます";
+    for (const title of ["[重要] 手順", "配列a]", "a[b"]) {
+      const res = await admin.post("/api/articles", { title, body: "", tags: [] });
+      expect(res.status).toBe(400);
+      expect((await json(res)).error).toBe(message);
+    }
+    const article = await createArticle(admin, { title: "［重要］ 手順" });
+    const res = await admin.put(`/api/articles/${article.id}`, { title: "[重要] 手順", body: "", tags: [], baseVersion: 1 });
+    expect(res.status).toBe(400);
+    expect((await json(res)).error).toBe(message);
+  });
 });
 
 describe("検索とタグ", () => {

@@ -26,9 +26,16 @@ export function normalizeTags(value: unknown): string[] {
   return [...seen.values()];
 }
 
+function readTitle(body: Record<string, unknown>): string {
+  const title = str(body, "title", { max: 200, label: "タイトル" });
+  // [[ ]] の中に [ ] を書けないので、半角の [ ] を含むタイトルはリンクできなくなる。全角の［］はリンクできる
+  if (/[[\]]/.test(title)) fail(400, "タイトルに [ ] は使えません。［ ］（全角）なら使えます");
+  return title;
+}
+
 function readArticleInput(body: Record<string, unknown>) {
   return {
-    title: str(body, "title", { max: 200, label: "タイトル" }),
+    title: readTitle(body),
     body: str(body, "body", { min: 0, max: 200_000, label: "本文" }),
     tags: normalizeTags(body.tags),
   };
