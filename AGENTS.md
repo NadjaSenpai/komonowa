@@ -14,7 +14,7 @@ A private team wiki on Cloudflare Workers. See `README.md` for features and desi
 
 ## Build, Test, and Development
 
-Requires Node.js 22+. Run `npm install`, copy `.dev.vars.example` to `.dev.vars`, then `npm run db:migrate:local` and `npm run dev`. Run `npm run check` (lint, typecheck, tests, build) before committing; CI runs the same command on pushes to `main` and on pull requests. After changing bindings in `wrangler.jsonc`, run `npm run cf-typegen`.
+Requires Node.js 22+. Run `npm install`, copy `.dev.vars.example` to `.dev.vars`, then `npm run db:migrate:local` and `npm run dev`. Run `npm run check` (lint, typecheck, tests, build) before committing; CI runs the same command on pushes to `main` and on pull requests. A push to `main` that passes is deployed to production automatically (migrations first), so treat a merge to `main` as a release. After changing bindings in `wrangler.jsonc`, run `npm run cf-typegen`.
 
 ## Style and Naming
 

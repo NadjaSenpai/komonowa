@@ -47,7 +47,7 @@ npm run build       # 本番ビルド（dist/）
 npm run check       # 上の4つをまとめて実行
 ```
 
-`main` への push とプルリクエストでは、GitHub Actions が `npm run check` を実行します（`.github/workflows/ci.yml`）。
+`main` への push とプルリクエストでは、GitHub Actions が `npm run check` を実行します（`.github/workflows/ci.yml`）。`main` への push では、それが通ったあと本番へのデプロイまで自動で行います（下の「デプロイ」）。
 
 `npm install` の際に npm 11 が esbuild と workerd のインストールスクリプトの承認を求めます。`package.json` の `allowScripts` に承認済みのものを記録しています。
 
@@ -70,7 +70,14 @@ npm run build && npx wrangler deploy
 2. 作成後は `npx wrangler secret delete SETUP_TOKEN` でトークンを削除します（利用者が1人でもいれば初期設定 API は拒否しますが、念のため）。
 3. 管理画面からメンバーを招待します。招待リンクはメールで本人に届き、画面には表示されません。
 
-更新するときは、先にマイグレーションを適用してからデプロイします（新しいコードが新しい列を読むため）。
+更新は `main` に入れば GitHub Actions が自動で行います（`.github/workflows/ci.yml` の `deploy`）。`npm run check` が通ったあと、マイグレーションの適用 → ビルド → デプロイの順に実行します（新しいコードが新しい列を読むため、マイグレーションが先）。リポジトリのシークレットに次の2つが必要です。
+
+| シークレット | 内容 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | API トークン。テンプレート「Edit Cloudflare Workers」に D1 の編集権限を足し、対象のアカウントだけに絞る |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare のアカウント ID |
+
+自動デプロイはバックアップを取りません。スキーマを変える変更は、`main` に入れる前に `npm run backup:remote` を実行してください。手で出すときは次のとおりです。
 
 ```sh
 npm run backup:remote                    # スキーマを変えるときは先にバックアップ
@@ -112,6 +119,6 @@ migrations/        D1 スキーマ
 test/              API テスト（@cloudflare/vitest-plugin）
 scripts/           バックアップ・復元スクリプト
 public/_headers    静的ファイルのセキュリティヘッダー
-.github/workflows/ CI（npm run check）
+.github/workflows/ CI（npm run check）と本番への自動デプロイ
 docs/              仕様・計画・運用手順
 ```

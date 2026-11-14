@@ -103,5 +103,5 @@ npm run dev
   HASH=$(printf "%s" "<アドレス>" | openssl dgst -sha256 -binary | basenc --base64url | tr -d "=")
   npx wrangler d1 execute wiki-db --remote --command "DELETE FROM blocked_emails WHERE email_hash = '$HASH'"
   ```
-- **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。適用前にバックアップを取る。マイグレーションを適用してからデプロイする（新しいコードが新しい列を読むため）
+- **スキーマ変更**: `migrations/` に連番の SQL を追加し、`npm run db:migrate:remote`。`main` に入ると GitHub Actions がマイグレーションを適用してからデプロイする（新しいコードが新しい列を読むため、この順）。自動デプロイはバックアップを取らないので、`main` に入れる前に `npm run backup:remote` を実行する。手で出すときも同じ順（`npm run db:migrate:remote` → デプロイ）
 - **期限切れの記録の掃除**: 毎日 03:00（JST）の cron（`wrangler.jsonc` の `triggers`）が、期限切れのセッション・メール変更の申し込み・1日より古い失敗の記録と、期限から30日たった招待・再設定のトークンを消す（`worker/cleanup.ts`）。実行の記録は Workers のログ（`observability` を有効にしている）で確認できる

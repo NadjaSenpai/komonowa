@@ -9,8 +9,8 @@
 
 ## デプロイ時の注意
 
-- マイグレーションを適用してからデプロイする（`npm run db:migrate:remote` → `npm run build && npx wrangler deploy`）。
-- `0012_reauth_failures.sql` と `0013_article_cover.sql` を本番に適用したかは、`npx wrangler d1 migrations list wiki-db --remote` で確認する。
+- `main` に入ると GitHub Actions が自動でデプロイする（マイグレーション → ビルド → デプロイ）。シークレット `CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` が必要。
+- スキーマを変えるときは、`main` に入れる前に `npm run backup:remote` を実行する。
 
 ## 残っていること
 
