@@ -56,21 +56,38 @@ admin.patch("/users/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-/** パスワード再設定リンクの発行。以前の未使用リンクは無効にする */
+/** パスワード再設定リンクを本人の登録アドレスにメールで送る。送れたら、以前の未使用リンクは無効にする */
 admin.post("/users/:id/reset-link", async (c) => {
   const id = c.req.param("id");
-  const user = await c.env.DB.prepare("SELECT id FROM users WHERE id = ? AND status = 'active'").bind(id).first();
+  const user = await c.env.DB.prepare("SELECT id, email FROM users WHERE id = ? AND status = 'active'").bind(id).first<{
+    id: string;
+    email: string;
+  }>();
   if (!user) fail(404, "有効な利用者が見つかりません");
   const token = randomToken();
   const now = Date.now();
   const expires = now + 24 * HOUR;
+  await sendOrFail(c.env, {
+    to: user.email,
+    subject: "komonowa のパスワード再設定",
+    text: [
+      `${c.var.user.name} さんが、チームWiki「komonowa」のパスワード再設定リンクを送りました。`,
+      "",
+      "次のリンクを開くと、新しいパスワードを決められます。",
+      `${new URL(c.req.url).origin}/reset#${token}`,
+      "",
+      `有効期限：${formatJst(expires)}（一度だけ使えます）`,
+      "",
+      "心当たりがなければ、このメールは無視してください。今のパスワードはそのまま使えます。",
+    ].join("\n"),
+  });
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, id),
     c.env.DB.prepare(
       "INSERT INTO auth_tokens (token_hash, kind, user_id, created_by, expires_at, created_at) VALUES (?, 'reset', ?, ?, ?, ?)",
     ).bind(await sha256(token), id, c.var.user.id, expires, now),
   ]);
-  return c.json({ token, expiresAt: expires }, 201);
+  return c.json({ expiresAt: expires }, 201);
 });
 
 // ---- 招待 ----

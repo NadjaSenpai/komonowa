@@ -140,9 +140,18 @@ describe("パスワード再設定と無効化", () => {
   it("再設定リンクでパスワードを変え、既存セッションを失効させる", async () => {
     const admin = await adminClient();
     const member = await memberClient(admin);
-    const { token } = await json(await admin.post(`/api/admin/users/${member.user.id}/reset-link`));
-    // 新しいリンクを発行すると古いリンクは無効
-    const { token: token2 } = await json(await admin.post(`/api/admin/users/${member.user.id}/reset-link`));
+    const res = await admin.post(`/api/admin/users/${member.user.id}/reset-link`);
+    expect(res.status).toBe(201);
+    // リンクは応答に含めず、本人の登録アドレスにメールで送る
+    expect(await json(res)).not.toHaveProperty("token");
+    const mail = lastMail();
+    expect(mail.to).toBe(member.email);
+    expect(mail.subject).toBe("komonowa のパスワード再設定");
+    expect(mail.text).toContain("https://wiki.example.com/reset#");
+    const token = tokenFrom(mail);
+    // 新しいリンクを送ると古いリンクは無効
+    await admin.post(`/api/admin/users/${member.user.id}/reset-link`);
+    const token2 = tokenFrom(lastMail());
     expect((await new Client().post("/api/auth/reset/accept", { token, password: "brand-new-pass-1" })).status).toBe(410);
 
     expect((await new Client().post("/api/auth/reset/accept", { token: token2, password: "brand-new-pass-1" })).status).toBe(200);
@@ -157,14 +166,28 @@ describe("パスワード再設定と無効化", () => {
   it("無効化した利用者はログインもセッション利用もできず、再有効化で戻る", async () => {
     const admin = await adminClient();
     const member = await memberClient(admin);
-    const reset = await json(await admin.post(`/api/admin/users/${member.user.id}/reset-link`));
+    await admin.post(`/api/admin/users/${member.user.id}/reset-link`);
+    const reset = tokenFrom(lastMail());
     expect((await admin.patch(`/api/admin/users/${member.user.id}`, { status: "disabled" })).status).toBe(200);
     expect((await member.client.get("/api/articles")).status).toBe(401);
     expect((await new Client().post("/api/auth/login", { email: member.email, password: member.password })).status).toBe(401);
-    expect((await new Client().post("/api/auth/reset/accept", { token: reset.token, password: "after-disable-1" })).status).toBe(410);
+    expect((await new Client().post("/api/auth/reset/accept", { token: reset, password: "after-disable-1" })).status).toBe(410);
 
     expect((await admin.patch(`/api/admin/users/${member.user.id}`, { status: "active" })).status).toBe(200);
     expect((await new Client().post("/api/auth/login", { email: member.email, password: member.password })).status).toBe(200);
+  });
+
+  it("再設定メールを送れなければ、前のリンクがそのまま使える", async () => {
+    const admin = await adminClient();
+    const member = await memberClient(admin);
+    await admin.post(`/api/admin/users/${member.user.id}/reset-link`);
+    const first = tokenFrom(lastMail());
+
+    mailbox.failNext = true;
+    const res = await admin.post(`/api/admin/users/${member.user.id}/reset-link`);
+    expect(res.status).toBe(502);
+    expect((await json(res)).error).toBe("メールを送れませんでした。アドレスを確かめて、もう一度試してください");
+    expect((await new Client().post("/api/auth/reset/accept", { token: first, password: "brand-new-pass-1" })).status).toBe(200);
   });
 
   it("最後の管理者は降格・無効化できない", async () => {
