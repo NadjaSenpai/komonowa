@@ -4,6 +4,10 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  // 公開URLはカスタムドメインのみ（workers.dev とプレビューURLは無効）
+  "routes": [{ "pattern": "wiki.nadja.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
