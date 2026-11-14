@@ -25,14 +25,19 @@ function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!);
 }
 
+interface Action {
+  button: string;
+  url: string;
+  expiresAt: number;
+}
+
 interface Content {
   /** 見出し（例：「komonowa」に招待されました） */
   title: string;
   /** 見出しの下の段落（文字のまま。HTML では escape する） */
   lead: string[];
-  button: string;
-  url: string;
-  expiresAt: number;
+  /** 押してもらうリンク。お知らせだけのメールでは付けない */
+  action?: Action;
   /** いちばん下の注意書き */
   note: string;
 }
@@ -42,11 +47,21 @@ function expiry(ms: number): string {
 }
 
 function renderText(c: Content): string {
-  return [...c.lead, "", c.url, "", expiry(c.expiresAt), "", c.note, "", "— komonowa"].join("\n");
+  const action = c.action ? ["", c.action.url, "", expiry(c.action.expiresAt)] : [];
+  return [...c.lead, ...action, "", c.note, "", "— komonowa"].join("\n");
+}
+
+function renderAction(a: Action): string {
+  const url = escapeHtml(a.url);
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0;"><tr>
+<td style="border-radius:8px;background:${COLOR.accent};"><a href="${url}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:${COLOR.accentInk};text-decoration:none;border-radius:8px;">${escapeHtml(a.button)}</a></td>
+</tr></table>
+<p style="margin:0 0 8px;font-size:13px;color:${COLOR.muted};">${escapeHtml(expiry(a.expiresAt))}</p>
+<p style="margin:0 0 4px;font-size:13px;color:${COLOR.muted};">ボタンが使えないときは、次の URL をブラウザで開いてください。</p>
+<p style="margin:0;font-size:13px;word-break:break-all;"><a href="${url}" style="color:${COLOR.accent};">${url}</a></p>`;
 }
 
 function renderHtml(c: Content): string {
-  const url = escapeHtml(c.url);
   const lead = c.lead
     .map((p) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:${COLOR.ink};">${escapeHtml(p)}</p>`)
     .join("");
@@ -61,12 +76,7 @@ function renderHtml(c: Content): string {
 <tr><td style="background:${COLOR.card};border:1px solid ${COLOR.rule};border-radius:12px;padding:32px 28px;">
 <h1 style="margin:0 0 20px;font-size:20px;line-height:1.5;color:${COLOR.ink};">${escapeHtml(c.title)}</h1>
 ${lead}
-<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0;"><tr>
-<td style="border-radius:8px;background:${COLOR.accent};"><a href="${url}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:${COLOR.accentInk};text-decoration:none;border-radius:8px;">${escapeHtml(c.button)}</a></td>
-</tr></table>
-<p style="margin:0 0 8px;font-size:13px;color:${COLOR.muted};">${escapeHtml(expiry(c.expiresAt))}</p>
-<p style="margin:0 0 4px;font-size:13px;color:${COLOR.muted};">ボタンが使えないときは、次の URL をブラウザで開いてください。</p>
-<p style="margin:0;font-size:13px;word-break:break-all;"><a href="${url}" style="color:${COLOR.accent};">${url}</a></p>
+${c.action ? renderAction(c.action) : ""}
 </td></tr>
 <tr><td style="padding:16px 4px 0;font-size:12px;line-height:1.7;color:${COLOR.muted};">${escapeHtml(c.note)}</td></tr>
 </table>
@@ -88,9 +98,7 @@ export function inviteMail(p: { to: string; inviter: string; role: string; url: 
       `${p.inviter} さんから「komonowa」に${p.role === "admin" ? "管理者" : "メンバー"}として招待されました。`,
       "リンクを開いて表示名とパスワードを決めると、登録できます。",
     ],
-    button: "登録する",
-    url: p.url,
-    expiresAt: p.expiresAt,
+    action: { button: "登録する", url: p.url, expiresAt: p.expiresAt },
     note: "心当たりがなければ、このメールは無視してください。",
   });
 }
@@ -100,9 +108,27 @@ export function resetMail(p: { to: string; sender: string; url: string; expiresA
   return build(p.to, title, {
     title,
     lead: [`${p.sender} さんが、パスワード再設定のリンクを送りました。`, "リンクを開いて、新しいパスワードを決めてください。"],
-    button: "パスワードを再設定する",
-    url: p.url,
-    expiresAt: p.expiresAt,
+    action: { button: "パスワードを再設定する", url: p.url, expiresAt: p.expiresAt },
     note: "心当たりがなければ、このメールは無視してください。今のパスワードはそのまま使えます。",
+  });
+}
+
+export function emailChangeMail(p: { to: string; url: string; expiresAt: number }): Mail {
+  const title = "「komonowa」メールアドレスの確認";
+  return build(p.to, title, {
+    title,
+    lead: ["「komonowa」のメールアドレスを、このアドレスに変更する申し込みがありました。", "リンクを開くと変更されます。"],
+    action: { button: "メールアドレスを確認する", url: p.url, expiresAt: p.expiresAt },
+    note: "心当たりがなければ、このメールは無視してください。メールアドレスは変更されません。",
+  });
+}
+
+/** 変更前のアドレスへのお知らせ。乗っ取られたときに気づけるように送る */
+export function emailChangedNotice(p: { to: string; newEmail: string }): Mail {
+  const title = "「komonowa」のメールアドレスが変更されました";
+  return build(p.to, title, {
+    title,
+    lead: [`「komonowa」のメールアドレスが ${p.newEmail} に変更されました。`, "今後のお知らせは新しいアドレスに届き、このアドレスではログインできません。"],
+    note: "身に覚えがなければ、管理者に連絡してください。",
   });
 }

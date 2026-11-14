@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inviteMail, resetMail } from "../worker/mailTemplates";
+import { emailChangedNotice, emailChangeMail, inviteMail, resetMail } from "../worker/mailTemplates";
 
 const EXPIRES = Date.UTC(2026, 10, 17, 3, 0); // 2026/11/17 12:00 日本時間
 
@@ -39,5 +39,30 @@ describe("再設定メール", () => {
     expect(mail.text).toContain("今のパスワードはそのまま使えます");
     expect(mail.html).toContain('href="https://wiki.example.com/reset#tok"');
     expect(mail.html).toContain(">パスワードを再設定する<");
+  });
+});
+
+describe("メールアドレス変更の確認メール", () => {
+  const mail = emailChangeMail({ to: "next@example.com", url: "https://wiki.example.com/email#tok", expiresAt: EXPIRES });
+
+  it("新しいアドレスに、確認のリンクを送る", () => {
+    expect(mail.to).toBe("next@example.com");
+    expect(mail.subject).toBe("「komonowa」メールアドレスの確認");
+    expect(mail.text).toContain("https://wiki.example.com/email#tok");
+    expect(mail.html).toContain('href="https://wiki.example.com/email#tok"');
+    expect(mail.html).toContain(">メールアドレスを確認する<");
+  });
+});
+
+describe("メールアドレス変更のお知らせ", () => {
+  const mail = emailChangedNotice({ to: "old@example.com", newEmail: "next@example.com" });
+
+  it("古いアドレスに、新しいアドレスと連絡先を知らせる（リンクやボタンはない）", () => {
+    expect(mail.to).toBe("old@example.com");
+    expect(mail.subject).toBe("「komonowa」のメールアドレスが変更されました");
+    expect(mail.text).toContain("next@example.com");
+    expect(mail.text).toContain("身に覚えがなければ、管理者に連絡してください");
+    expect(mail.html).toContain("next@example.com");
+    expect(mail.html).not.toContain("<a ");
   });
 });
