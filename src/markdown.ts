@@ -1,7 +1,7 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { wikiLinkExtension } from "../shared/wikilinks";
-import { embedVideos } from "./embeds";
+import { embedLinks } from "./embeds";
 
 marked.setOptions({ gfm: true, breaks: true });
 // [[タイトル]] を記事間リンクにする（shared/wikilinks.ts。保存時のリンク解析と同じ判定）
@@ -26,11 +26,11 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
-/** Markdown を HTML にし、スクリプトなど危険な要素を取り除く。YouTube の URL だけの行は、再生ボタン付きの枠にする（embeds.ts） */
+/** Markdown を HTML にし、スクリプトなど危険な要素を取り除く。URL だけの行は、YouTube なら再生ボタン付きの枠に、画像なら画像にする（embeds.ts） */
 export function renderMarkdown(source: string): string {
   const html = marked.parse(source, { async: false });
   // iframe はサニタイズで落とす。動画の枠はそのあとに自分で組み立て、プレーヤーは再生ボタンを押したときにだけ入れる
-  return embedVideos(DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, FORBID_TAGS: ["style", "form", "input"] }));
+  return embedLinks(DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, FORBID_TAGS: ["style", "form", "input"] }));
 }
 
 /** 一覧の抜粋用。Markdown を描画してから文字だけを取り出す（見出しと動画の枠は除く） */

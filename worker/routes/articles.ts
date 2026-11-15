@@ -4,6 +4,7 @@ import { randomPasscode, randomToken } from "../crypto";
 import { fail, int, isUniqueViolation, origin, readJson, str } from "../http";
 import { requireAuth } from "../session";
 import { extractWikiLinks, titleKey } from "../../shared/wikilinks";
+import { firstVideoLine } from "../../shared/youtube";
 
 export const articles = new Hono<AppEnv>();
 articles.use("*", requireAuth);
@@ -117,16 +118,24 @@ function writeStatements(
   }
   // 一覧に出す画像。本文で最初に出てくる、その記事に添付された画像（ほかの記事の添付や画像以外は飛ばす）。
   // 本文で使われている添付は消せないので（attachments.ts）、保存のときに選べば足りる
-  const images = [...input.body.matchAll(IMAGE_ATTACHMENT)].map((m) => m[1]!);
+  // YouTube の動画の行が、そうした画像より先にあれば、動画のサムネイルを出す（cover_video。一覧では cover_id より優先）
+  const matches = [...input.body.matchAll(IMAGE_ATTACHMENT)];
+  const images = matches.map((m) => m[1]!);
+  const video = firstVideoLine(input.body);
+  const imagesBeforeVideo = video ? matches.filter((m) => m.index < video.index).map((m) => m[1]!) : [];
   stmts.push(
     db
       .prepare(
         `UPDATE articles SET cover_id = (
-           SELECT f.id FROM json_each(?) j JOIN attachments f ON f.id = j.value
-            WHERE f.article_id = ? AND f.content_type LIKE 'image/%' ORDER BY j.key LIMIT 1)
-          WHERE id = ? AND revision_id = ?`,
+           SELECT f.id FROM json_each(?1) j JOIN attachments f ON f.id = j.value
+            WHERE f.article_id = ?2 AND f.content_type LIKE 'image/%' ORDER BY j.key LIMIT 1),
+           cover_video = (
+           SELECT ?3 WHERE NOT EXISTS (
+             SELECT 1 FROM json_each(?4) j JOIN attachments f ON f.id = j.value
+              WHERE f.article_id = ?2 AND f.content_type LIKE 'image/%'))
+          WHERE id = ?2 AND revision_id = ?5`,
       )
-      .bind(JSON.stringify(images), articleId, articleId, revisionId),
+      .bind(JSON.stringify(images), articleId, video?.id ?? null, JSON.stringify(imagesBeforeVideo), revisionId),
   );
   return stmts;
 }
@@ -191,7 +200,7 @@ articles.get("/", async (c) => {
     params.push(...tags, tags.length);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.cover_id AS cover, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.cover_id AS cover, a.cover_video, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
             a.pinned_at IS NOT NULL AS pinned,
             ${TAGS_JSON} AS tags
        FROM articles a JOIN users uu ON uu.id = a.updated_by

@@ -88,20 +88,30 @@ describe("動画の枠", () => {
     );
     expect(root.querySelector("iframe")).toBeNull();
     expect(playVideo(root.querySelector(".video-play"))).toBe(false);
-    expect(root.querySelector("iframe")).toBeNull();
+    expect(document.querySelector("iframe")).toBeNull();
     expect(root.innerHTML).not.toContain("<script");
   });
 
-  it("再生ボタンを押すと、その場でプレーヤーに替わる", () => {
+  it("再生ボタンを押すと、画面いっぱいの枠にプレーヤーを出す。閉じるとプレーヤーごと消える", () => {
     const root = render(`https://youtu.be/${ID}?t=90`);
+    document.body.append(root);
     // サムネイルの上を押しても効く
     expect(playVideo(root.querySelector(".video-play img"))).toBe(true);
-    const frame = root.querySelector("iframe")!;
+    const dialog = document.querySelector<HTMLDialogElement>("dialog.lightbox")!;
+    expect(dialog.getAttribute("aria-label")).toBe("YouTube の動画");
+    const frame = dialog.querySelector("iframe")!;
     expect(frame.getAttribute("src")).toBe(`https://www.youtube-nocookie.com/embed/${ID}?autoplay=1&start=90`);
     expect(frame.getAttribute("referrerpolicy")).toBe("strict-origin-when-cross-origin");
     expect(frame.title).toBe("YouTube の動画");
-    expect(root.querySelector(".video-play")).toBeNull();
-    expect(root.querySelector(".video-embed a")).not.toBeNull();
+    // 本文の枠はそのまま残るので、閉じたあとにもう一度再生できる
+    expect(root.querySelector(".video-play")).not.toBeNull();
+    expect(root.querySelector("iframe")).toBeNull();
+
+    dialog.querySelector<HTMLButtonElement>(".lightbox-close")!.click();
+    dialog.dispatchEvent(new Event("close"));
+    expect(document.querySelector("dialog.lightbox")).toBeNull();
+    expect(document.querySelector("iframe")).toBeNull();
+    root.remove();
   });
 
   it("大きいサムネイルが無い動画では、小さい版に替える", () => {
@@ -136,6 +146,30 @@ describe("動画の枠", () => {
 });
 
 describe("ほかのサイトの画像", () => {
+  it("画像の URL だけの行は、その画像にする", () => {
+    for (const url of ["https://example.com/a.png", "https://example.com/photo.JPG?size=large", "https://example.com/x/y.webp#top"]) {
+      const root = render(`前の文\n\n${url}\n\n後の文`);
+      expect(root.querySelector("p > img")?.getAttribute("src"), url).toBe(url);
+      expect(root.querySelector("a"), url).toBeNull();
+    }
+  });
+
+  it("文中の URL・画像でない URL・http の URL は、リンクのまま", () => {
+    for (const markdown of [
+      "この画像 https://example.com/a.png を見て",
+      "[画像](https://example.com/a.png)",
+      "https://example.com/a.png\n続きの行",
+      "https://example.com/a.pdf",
+      "https://example.com/png",
+      "https://example.com/page?file=a.png",
+      "http://example.com/a.png",
+    ]) {
+      const root = render(markdown);
+      expect(root.querySelector("img"), markdown).toBeNull();
+      expect(root.querySelector("a"), markdown).not.toBeNull();
+    }
+  });
+
   it("https の画像はそのまま表示する", () => {
     expect(renderMarkdown("![図](https://example.com/a.png)")).toContain('<img src="https://example.com/a.png" alt="図">');
   });

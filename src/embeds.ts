@@ -1,43 +1,10 @@
-const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
-const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtube-nocookie.com", "www.youtube-nocookie.com"]);
+import { YOUTUBE_ID, youtubeVideo } from "../shared/youtube";
+import { openLightbox } from "./lightbox";
 
-export interface Video {
-  id: string;
-  /** 再生を始める位置（秒）。指定がなければ 0 */
-  start: number;
-}
+export { youtubeVideo };
 
-/** 「90」「90s」「1m30s」「1h2m3s」を秒にする。読めなければ 0 */
-function seconds(value: string | null): number {
-  if (!value) return 0;
-  if (/^\d+$/.test(value)) return Number(value);
-  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(value);
-  if (!m) return 0;
-  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
-}
-
-/** YouTube の動画の URL（watch・youtu.be・shorts・live・embed）から動画 ID と開始位置を取り出す。動画でなければ null */
-export function youtubeVideo(url: string): Video | null {
-  let u: URL;
-  try {
-    u = new URL(url);
-  } catch {
-    return null;
-  }
-  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
-  const host = u.hostname.toLowerCase();
-  let id: string | null = null;
-  if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0] ?? null;
-  else if (YOUTUBE_HOSTS.has(host)) {
-    const [, kind, rest] = u.pathname.split("/");
-    if (kind === "watch") id = u.searchParams.get("v");
-    else if (kind === "shorts" || kind === "live" || kind === "embed") id = rest ?? null;
-  }
-  if (!id || !YOUTUBE_ID.test(id)) return null;
-  return { id, start: seconds(u.searchParams.get("t") ?? u.searchParams.get("start")) };
-}
-
-function thumbnailUrl(id: string, size: "maxresdefault" | "hqdefault"): string {
+/** YouTube のサムネイル。mqdefault（320×180）と hqdefault（480×360）はどの動画にもあり、maxresdefault（1280×720）は無い動画がある */
+export function thumbnailUrl(id: string, size: "maxresdefault" | "hqdefault" | "mqdefault"): string {
   return `https://i.ytimg.com/vi/${id}/${size}.jpg`;
 }
 
@@ -54,13 +21,26 @@ export function fallbackThumbnail(target: EventTarget | null): boolean {
   return true;
 }
 
+/** URL の末尾の拡張子から、画像の URL かを見分ける。CSP で https の画像しか読めないので https だけ */
+export function isImageUrl(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  return u.protocol === "https:" && /\.(png|jpe?g|gif|webp)$/i.test(u.pathname);
+}
+
 /**
- * 描画した本文のうち、YouTube の URL だけの段落を、サムネイルと再生ボタンの枠に置き換える。
- * この時点で読むのはサムネイル画像だけ。プレーヤー（iframe）は再生ボタンを押したときに playVideo が入れる。
+ * 描画した本文のうち、URL だけの段落を、中身に合わせて置き換える。
+ * - YouTube の動画：サムネイルと再生ボタンの枠。この時点で読むのはサムネイル画像だけで、
+ *   プレーヤー（iframe）は再生ボタンを押したときに playVideo が出す
+ * - 画像（末尾が .png .jpg .jpeg .gif .webp）：その画像。![説明](URL) と書いたときと同じ
  * 文中の URL や [文字](URL) の形のリンクは、ふつうのリンクのまま
  */
-export function embedVideos(html: string): string {
-  if (!html.includes("youtu")) return html;
+export function embedLinks(html: string): string {
+  if (!html.includes(`href="http`)) return html;
   const doc = new DOMParser().parseFromString(html, "text/html");
   let changed = false;
   for (const p of doc.body.querySelectorAll("p")) {
@@ -69,6 +49,14 @@ export function embedVideos(html: string): string {
     const href = a.getAttribute("href") ?? "";
     // URL をそのまま書いた行だけ（リンクの文字が URL と同じ）
     if ((p.textContent ?? "").trim() !== (a.textContent ?? "").trim() || a.textContent !== href) continue;
+    if (isImageUrl(href)) {
+      const img = doc.createElement("img");
+      img.src = href;
+      img.alt = "";
+      a.replaceWith(img);
+      changed = true;
+      continue;
+    }
     const video = youtubeVideo(href);
     if (!video) continue;
 
@@ -99,7 +87,10 @@ export function embedVideos(html: string): string {
   return changed ? doc.body.innerHTML : html;
 }
 
-/** 再生ボタンが押されたら、その枠をプレーヤーに置き換える。押すまで YouTube のプレーヤーは読み込まない */
+/**
+ * 再生ボタンが押されたら、画面いっぱいの枠（lightbox.ts）にプレーヤーを出す。押すまで YouTube のプレーヤーは読み込まない。
+ * 本文の中の小さい枠で再生すると YouTube が低い画質を選ぶので、大きく出す。閉じるとプレーヤーごと消えて、再生も止まる
+ */
 export function playVideo(target: EventTarget | null): boolean {
   const play = target instanceof Element ? target.closest(".video-play") : null;
   const box = play?.closest<HTMLElement>(".video-embed");
@@ -107,13 +98,14 @@ export function playVideo(target: EventTarget | null): boolean {
   if (!play || !box || !id || !YOUTUBE_ID.test(id)) return false;
   const frame = box.ownerDocument.createElement("iframe");
   const start = Number(box.dataset.start) > 0 ? `&start=${Number(box.dataset.start)}` : "";
+  // 画質は URL では指定できない（vq=hd1080 は試したが効かなかった）。プレーヤーが枠の大きさと回線から決める
   frame.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1${start}`;
   frame.title = "YouTube の動画";
   frame.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
   frame.setAttribute("allowfullscreen", "");
   // YouTube のプレーヤーは埋め込み元がわからないと再生を断るので、ここだけサイトのオリジン（ページの URL ではない）を渡す
   frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-  play.replaceWith(frame);
+  openLightbox(frame, "YouTube の動画");
   return true;
 }
 
