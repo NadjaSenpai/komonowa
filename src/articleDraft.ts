@@ -8,7 +8,8 @@ export interface DraftContent {
 export interface ArticleDraft extends DraftContent {
   savedAt: number;
 }
-const TTL = 7 * 86400000;
+import { DRAFT_TTL_MS as TTL } from "../shared/drafts";
+
 export const draftKey = (userId: string, articleId = "new") => `wiki:draft:v1:${userId}:${articleId}`;
 export function loadDraft(key: string): ArticleDraft | null {
   const raw = localStorage.getItem(key);

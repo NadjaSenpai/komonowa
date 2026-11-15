@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { DRAFT_TTL_MS } from "../shared/drafts";
 import { Client, adminClient, createArticle, json, memberClient } from "./helpers";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -193,11 +194,16 @@ describe("下書き添付（保存前の記事への差し込み）", () => {
     expect(res.status).toBe(400);
   });
 
-  it("1日たっても使われなかった下書きは、次のアップロードのついでに消える", async () => {
+  it("7日たっても使われなかった下書きは、次のアップロードのついでに消える", async () => {
     const admin = await adminClient();
     const old = (await json(await uploadDraft(admin, PNG, "old.png"))).attachment;
+    const recent = (await json(await uploadDraft(admin, PNG, "recent.png"))).attachment;
     await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?")
-      .bind(Date.now() - 25 * 60 * 60 * 1000, old.id)
+      .bind(Date.now() - DRAFT_TTL_MS - 60 * 60 * 1000, old.id)
+      .run();
+    // ブラウザの下書きが残っている間（7日未満）は消さない
+    await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?")
+      .bind(Date.now() - DRAFT_TTL_MS + 60 * 60 * 1000, recent.id)
       .run();
     const fresh = (await json(await uploadDraft(admin, PNG, "new.png"))).attachment;
 
@@ -209,6 +215,7 @@ describe("下書き添付（保存前の記事への差し込み）", () => {
     expect(gone).toBe(true);
     expect(await env.FILES.head(`attachments/${old.id}`)).toBeNull();
     expect((await admin.get(fresh.url)).status).toBe(200);
+    expect((await admin.get(recent.url)).status).toBe(200);
   });
 });
 

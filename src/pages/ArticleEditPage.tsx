@@ -219,7 +219,7 @@ export function ArticleEditPage() {
         <div className="notice" role="region" aria-label="下書きの復元">
           <p>このブラウザに書きかけの記事があります（{new Date(draft.pending.savedAt).toLocaleString("ja-JP")}）。復元しますか？</p>
           {id && draft.pending.baseVersion !== baseVersion && <p>保存後に記事が更新されています。復元後の保存時に競合を確認します。</p>}
-          {draft.pending.draftIds.length > 0 && <p className="small">未保存の添付は1日で削除されるため、表示されなければ添付し直してください。</p>}
+          {draft.pending.draftIds.length > 0 && <p className="small">未保存の添付は添付から7日で削除されるため、表示されなければ添付し直してください。</p>}
           <div className="actions">
             <button type="button" onClick={() => restoreDraft(draft.pending!)}>
               下書きを復元

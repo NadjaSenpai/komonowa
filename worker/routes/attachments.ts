@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import type { AppEnv } from "../env";
 import { fail } from "../http";
 import { requireAuth } from "../session";
+import { DRAFT_TTL_MS } from "../../shared/drafts";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 /** 一覧に出す小さい版（長辺 400px の WebP。作れないブラウザでは JPEG）の上限 */
@@ -35,9 +36,6 @@ const TYPES: Record<string, FileType> = {
   csv: { mime: "text/csv; charset=utf-8", kind: "text" },
   zip: { mime: "application/zip", kind: "zip" },
 };
-
-/** 保存されないまま残った下書き添付を消すまでの時間 */
-export const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
 function startsWith(bytes: Uint8Array, sig: number[], offset = 0) {
   return sig.every((b, i) => bytes[offset + i] === b);

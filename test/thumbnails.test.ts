@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { DRAFT_TTL_MS } from "../shared/drafts";
 import { Client, adminClient, createArticle, json, memberClient } from "./helpers";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 1, 1, 1]);
@@ -134,7 +135,7 @@ describe("添付画像の小さい版", () => {
     const admin = await adminClient();
     const old = (await json(await uploadDraft(admin, PNG, "old.png", THUMB))).attachment;
     await env.DB.prepare("UPDATE attachments SET created_at = ? WHERE id = ?")
-      .bind(Date.now() - 25 * 60 * 60 * 1000, old.id)
+      .bind(Date.now() - DRAFT_TTL_MS - 60 * 60 * 1000, old.id)
       .run();
     await uploadDraft(admin, PNG, "new.png");
     let gone = false;
