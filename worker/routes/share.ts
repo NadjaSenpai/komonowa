@@ -1,9 +1,9 @@
 import { type Context, Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { clearAttempts, purgeAttempts, takeAttempt } from "../attempts";
+import { ATTEMPT_WINDOW_MS, clearAttempts, purgeAttempts, takeAttempt } from "../attempts";
 import { safeStringEqual } from "../crypto";
 import type { AppEnv } from "../env";
-import { fail, readJson } from "../http";
+import { fail, readJson, text } from "../http";
 import { attachmentResponse } from "./attachments";
 
 /**
@@ -18,9 +18,7 @@ const ROBOTS = "noindex, nofollow, noarchive, noai, noimageai";
 const GONE = "共有が見つかりません。共有が止められたか、URL が違います";
 const KEY_COOKIE = "share_key";
 const KEY_MAX_AGE = 30 * 24 * 60 * 60;
-const FAILURE_WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILURES = 5;
-const SHARE_ATTEMPTS = { table: "share_passcode_failures", column: "article_id" } as const;
+const SHARE_ATTEMPTS = { table: "share_passcode_failures", column: "article_id", windowMs: ATTEMPT_WINDOW_MS, limit: 5 } as const;
 
 share.use("*", async (c, next) => {
   await next();
@@ -78,12 +76,12 @@ share.post("/:token/unlock", async (c) => {
   const row = await sharedArticle(c.env.DB, token);
   if (row.passcode === null) return c.json({ ok: true });
   const body = await readJson(c);
-  const given = typeof body.passcode === "string" ? body.passcode.trim() : "";
+  const given = text(body, "passcode").trim();
   // 先に試しを記録してから確かめる（当て続けて最後に正解、も、同時に送ってすり抜ける、も防ぐ）
-  const attempt = await takeAttempt(c.env.DB, SHARE_ATTEMPTS, row.id, FAILURE_WINDOW_MS, MAX_FAILURES);
+  const attempt = await takeAttempt(c.env.DB, SHARE_ATTEMPTS, row.id);
   if (attempt === null) fail(429, "間違いが続いたため、15分ほど待ってからもう一度試してください");
   if (!row.passcode_key || !(await safeStringEqual(given, row.passcode))) {
-    await purgeAttempts(c.env.DB, SHARE_ATTEMPTS, FAILURE_WINDOW_MS).run();
+    await purgeAttempts(c.env.DB, SHARE_ATTEMPTS);
     return needsPasscode(c, "パスワードが違います");
   }
   await clearAttempts(c.env.DB, SHARE_ATTEMPTS, row.id);

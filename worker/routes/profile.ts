@@ -2,12 +2,13 @@ import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { randomToken, sha256 } from "../crypto";
 import { verifyCurrentPassword } from "../reauth";
-import { email, fail, readJson, str } from "../http";
-import { isBlocked } from "../accounts";
+import { email, fail, origin, readJson, str, text } from "../http";
+import { EMAIL_BLOCKED, EMAIL_TAKEN, avatarKey, isBlocked } from "../accounts";
 import { sendOrFail } from "../mail";
 import { emailChangeMail } from "../mailTemplates";
 import { requireAuth } from "../session";
-import { contentMatches } from "./attachments";
+import { revokeEmailChanges } from "../tokens";
+import { contentMatches, imageResponse } from "./attachments";
 
 /** アイコン画像の上限。UI は 256px に縮小してから送るので通常は数十 KB */
 export const MAX_AVATAR_BYTES = 1024 * 1024;
@@ -23,10 +24,6 @@ function detectAvatarType(bytes: Uint8Array) {
   return AVATAR_TYPES.find((t) => contentMatches(t.ext, bytes))?.mime ?? null;
 }
 
-function avatarKey(userId: string, avatarId: string) {
-  return `avatars/${userId}/${avatarId}`;
-}
-
 /** 本人が自分の表示名とアイコンを変える（/api/auth 配下） */
 export const profile = new Hono<AppEnv>();
 profile.use("*", requireAuth);
@@ -38,10 +35,6 @@ profile.patch("/profile", async (c) => {
   return c.json({ user: { ...c.var.user, name } });
 });
 
-export const EMAIL_TAKEN = "このメールアドレスはすでに使われています";
-/** 強制退会したアドレス（worker/accounts.ts） */
-export const EMAIL_BLOCKED = "このメールアドレスは使えません";
-
 /**
  * メールアドレスの変更を申し込む。新しいアドレスに確認メールを送り、リンク（/email#トークン）で確定する（auth.ts）。
  * 管理者がほかの人のアドレスを変える手段は作らない（所有者の再設定メールを横取りできてしまうため）
@@ -49,10 +42,9 @@ export const EMAIL_BLOCKED = "このメールアドレスは使えません";
 profile.post("/email", async (c) => {
   const body = await readJson(c);
   const next = email(body);
-  const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
   const userId = c.var.user.id;
   const row = await c.env.DB.prepare("SELECT email, password_hash FROM users WHERE id = ?").bind(userId).first<{ email: string; password_hash: string }>();
-  await verifyCurrentPassword(c.env.DB, userId, current, row?.password_hash);
+  await verifyCurrentPassword(c.env.DB, userId, text(body, "currentPassword"), row?.password_hash);
   if (!row) fail(403, "現在のパスワードが正しくありません");
   if (row.email.toLowerCase() === next) fail(400, "今のメールアドレスと同じです");
   if (await isBlocked(c.env.DB, next)) fail(409, EMAIL_BLOCKED);
@@ -62,9 +54,9 @@ profile.post("/email", async (c) => {
   const now = Date.now();
   const expires = now + 24 * 60 * 60 * 1000;
   // 先に送り、送れたときだけ記録する（失敗しても前の申し込みのリンクはそのまま使える）
-  await sendOrFail(c.env, emailChangeMail({ to: next, url: `${new URL(c.req.url).origin}/email#${token}`, expiresAt: expires }));
+  await sendOrFail(c.env, emailChangeMail({ to: next, url: `${origin(c)}/email#${token}`, expiresAt: expires }));
   await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE email_changes SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, userId),
+    revokeEmailChanges(c.env.DB, userId, now),
     c.env.DB.prepare("INSERT INTO email_changes (token_hash, user_id, new_email, expires_at, created_at) VALUES (?, ?, ?, ?, ?)").bind(
       await sha256(token),
       userId,
@@ -124,14 +116,5 @@ avatars.get("/:id", async (c) => {
   if (!row) fail(404, "画像が見つかりません");
   const object = await c.env.FILES.get(avatarKey(row.id, avatarId));
   if (!object) fail(404, "画像が見つかりません");
-  return new Response(object.body, {
-    headers: {
-      "content-type": row.avatar_type,
-      "content-length": String(object.size),
-      "x-content-type-options": "nosniff",
-      "cache-control": "private, max-age=31536000, immutable",
-      "cross-origin-resource-policy": "same-origin",
-      "content-security-policy": "default-src 'none'; sandbox",
-    },
-  });
+  return imageResponse(object, row.avatar_type, "private, max-age=31536000, immutable");
 });

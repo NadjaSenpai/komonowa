@@ -1,7 +1,20 @@
 import { randomToken, sha256 } from "./crypto";
 import { fail } from "./http";
+import { revokeInvitesFrom, revokeResetTokens } from "./tokens";
 
 import { DELETED_EMAIL_DOMAIN, DELETED_NAME } from "../shared/accounts";
+
+/** 招待や登録で、そのアドレスの利用者がもういるとき */
+export const EMAIL_REGISTERED = "このメールアドレスはすでに登録されています";
+/** メールアドレスの変更先を、ほかの人が使っているとき */
+export const EMAIL_TAKEN = "このメールアドレスはすでに使われています";
+/** 強制退会したアドレス */
+export const EMAIL_BLOCKED = "このメールアドレスは使えません";
+
+/** アイコン画像の R2 キー */
+export function avatarKey(userId: string, avatarId: string) {
+  return `avatars/${userId}/${avatarId}`;
+}
 
 const emailHash = (email: string) => sha256(email.trim().toLowerCase());
 
@@ -42,12 +55,8 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
   const statements = [
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId),
     env.DB.prepare("DELETE FROM email_changes WHERE user_id = ?").bind(userId),
-    env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, userId),
-    // この人が送った、まだ使われていない招待は取り消す
-    env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND created_by = ? AND used_at IS NULL AND revoked_at IS NULL").bind(
-      now,
-      userId,
-    ),
+    revokeResetTokens(env.DB, userId, now),
+    revokeInvitesFrom(env.DB, userId, now),
     // 招待の記録やログイン失敗の記録に残る元のアドレスも消す
     env.DB.prepare("UPDATE auth_tokens SET email = ? WHERE kind = 'invite' AND email = ?").bind(placeholder, user.email),
     env.DB.prepare("DELETE FROM login_failures WHERE email = ?").bind(user.email),
@@ -60,5 +69,5 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
     );
   }
   await env.DB.batch(statements);
-  if (user.avatar_id) await env.FILES.delete(`avatars/${userId}/${user.avatar_id}`);
+  if (user.avatar_id) await env.FILES.delete(avatarKey(userId, user.avatar_id));
 }
