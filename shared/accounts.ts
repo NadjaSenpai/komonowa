@@ -4,3 +4,5 @@ export const DELETED_NAME = "（削除されたユーザー）";
 export const DELETED_EMAIL_DOMAIN = "@deleted.invalid";
 /** パスワードの最短の長さ。サーバーの検証（worker/http.ts）と画面の入力欄（src/）で同じ値を使う */
 export const PASSWORD_MIN = 12;
+/** 自己紹介の最大の長さ。サーバーの検証（worker/routes/profile.ts）と画面の入力欄で同じ値を使う */
+export const BIO_MAX = 2000;

@@ -14,6 +14,7 @@ const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ defa
 const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })));
 const HistoryPage = lazy(() => import("./pages/HistoryPage").then((m) => ({ default: m.HistoryPage })));
+const UserPage = lazy(() => import("./pages/UserPage").then((m) => ({ default: m.UserPage })));
 
 function Content({ children }: { children: ReactNode }) {
   return (
@@ -79,6 +80,7 @@ export function App() {
         <Route path="/articles/:id/edit" element={<Protected page={<ArticleEditPage />} />} />
         <Route path="/articles/:id/history" element={<Protected page={<HistoryPage />} />} />
         <Route path="/wiki/:title" element={<Protected page={<WikiLinkPage />} />} />
+        <Route path="/users/:id" element={<Protected page={<UserPage />} />} />
         <Route path="/account" element={<Protected page={<AccountPage />} />} />
         <Route path="/admin" element={<Protected admin page={<AdminPage />} />} />
         <Route path="*" element={<Protected page={<p>ページが見つかりません。</p>} />} />

@@ -29,7 +29,7 @@ export async function isBlocked(db: D1Database, email: string): Promise<boolean>
 }
 
 /**
- * 退会・強制退会の共通処理。名前・メールアドレス・アイコン・パスワードを消し、ログインできなくする。
+ * 退会・強制退会の共通処理。名前・メールアドレス・アイコン・自己紹介・パスワードを消し、ログインできなくする。
  * 有効な管理者が 0 人になる場合は 409。block なら、元のアドレスを締め出す
  */
 export async function removeAccount(env: Env, userId: string, options: { block: boolean }): Promise<void> {
@@ -41,7 +41,7 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
   const placeholder = `deleted-${userId}${DELETED_EMAIL_DOMAIN}`;
   // 有効な管理者が 0 人にならないよう、条件付き UPDATE で守る
   const res = await env.DB.prepare(
-    `UPDATE users SET name = ?1, email = ?2, password_hash = ?3, avatar_id = NULL, avatar_type = NULL,
+    `UPDATE users SET name = ?1, email = ?2, password_hash = ?3, avatar_id = NULL, avatar_type = NULL, bio = '',
             status = 'disabled', role = 'member', is_owner = 0, deleted_at = ?4, updated_at = ?4
       WHERE id = ?5 AND deleted_at IS NULL
         AND (role <> 'admin' OR status <> 'active'

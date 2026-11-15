@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { avatarInitial, avatarTone } from "./userAvatar";
 
 interface Props {
@@ -19,12 +20,12 @@ export function Avatar({ userId, name, avatarId, size = "s" }: Props) {
   );
 }
 
-/** アイコンと名前を並べた表示 */
+/** アイコンと名前を並べた表示。押すとその人のユーザーページ（/users/<id>）を開く */
 export function Byline({ userId, name, avatarId, children }: Omit<Props, "size"> & { children?: React.ReactNode }) {
   return (
-    <span className="byline">
+    <Link className="byline" to={`/users/${userId}`}>
       <Avatar userId={userId} name={name} avatarId={avatarId} />
       <span>{children ?? name}</span>
-    </span>
+    </Link>
   );
 }

@@ -7,6 +7,7 @@ import { EMAIL_BLOCKED, EMAIL_TAKEN, avatarKey, isBlocked } from "../accounts";
 import { sendOrFail } from "../mail";
 import { emailChangeMail } from "../mailTemplates";
 import { requireAuth } from "../session";
+import { BIO_MAX } from "../../shared/accounts";
 import { revokeEmailChanges } from "../tokens";
 import { contentMatches, imageResponse } from "./attachments";
 
@@ -24,15 +25,19 @@ function detectAvatarType(bytes: Uint8Array) {
   return AVATAR_TYPES.find((t) => contentMatches(t.ext, bytes))?.mime ?? null;
 }
 
-/** 本人が自分の表示名とアイコンを変える（/api/auth 配下） */
+/** 本人が自分の表示名・自己紹介・アイコンを変える（/api/auth 配下） */
 export const profile = new Hono<AppEnv>();
 profile.use("*", requireAuth);
 
 profile.patch("/profile", async (c) => {
   const body = await readJson(c);
   const name = str(body, "name", { max: 50, label: "表示名" });
-  await c.env.DB.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?").bind(name, Date.now(), c.var.user.id).run();
-  return c.json({ user: { ...c.var.user, name } });
+  // 自己紹介（Markdown。ユーザーページ routes/users.ts に出る）は、送られたときだけ変える（名前だけ変える呼び出しで消えないように）
+  const bio = body.bio === undefined ? null : str(body, "bio", { min: 0, max: BIO_MAX, label: "自己紹介" });
+  const row = await c.env.DB.prepare("UPDATE users SET name = ?1, bio = COALESCE(?2, bio), updated_at = ?3 WHERE id = ?4 RETURNING bio")
+    .bind(name, bio, Date.now(), c.var.user.id)
+    .first<{ bio: string }>();
+  return c.json({ user: { ...c.var.user, name }, bio: row?.bio ?? "" });
 });
 
 /**
