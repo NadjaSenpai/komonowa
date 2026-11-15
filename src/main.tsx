@@ -4,6 +4,7 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 import { App } from "./App";
 import { watchVideoEmbeds } from "./embeds";
 import { watchImages } from "./lightbox";
+import { watchTheme } from "./theme";
 import "@fontsource/line-seed-jp/400.css";
 import "@fontsource/line-seed-jp/700.css";
 import "@fontsource-variable/jetbrains-mono";
@@ -15,6 +16,8 @@ import "./styles.css";
 watchVideoEmbeds();
 // 本文の画像を押すと大きく表示する
 watchImages();
+// アカウント設定で選んだライト・ダークを当て、ほかのタブでの切り替えも反映する
+watchTheme();
 
 // useBlocker（未保存の変更の警告）を使うためデータルーターにする
 const router = createBrowserRouter([{ path: "*", element: <App /> }]);

@@ -35,6 +35,8 @@ export default defineConfig({
           include: ["src/**/*.test.ts", "shared/**/*.test.ts"],
           setupFiles: ["./src/__tests__/setup-storage.ts"],
           environment: "jsdom",
+          // CSS はふだん空にされる。ダークの色の一致を確かめるテスト（theme.test.ts）のため tokens.css だけは中身を読む
+          css: { include: [/tokens\.css/] },
         },
       },
     ],

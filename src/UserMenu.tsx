@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { User } from "./api";
 import { Avatar } from "./Avatar";
+import { ThemePicker } from "./ThemePicker";
 
 /**
- * ヘッダーの自分の名前。押すと、自分に関わる行き先（自分のページ・アカウント設定・サイト管理・ヘルプ・ログアウト）が開く。
+ * ヘッダーの自分の名前。押すと、自分に関わる行き先（自分のページ・アカウント設定・サイト管理・ヘルプ）、画面の明るさ、ログアウトが開く。
  * 中身はふつうのリンクとボタンなので、Tab で順に移れる。Esc・外側の操作・画面の移動で閉じる
  */
 export function UserMenu({ user, onLogout }: { user: User; onLogout: () => void }) {
@@ -69,6 +70,9 @@ export function UserMenu({ user, onLogout }: { user: User; onLogout: () => void 
           )}
           <li>
             <Link to="/help">ヘルプ</Link>
+          </li>
+          <li className="separated">
+            <ThemePicker />
           </li>
           <li className="separated">
             <button type="button" className="link" onClick={onLogout}>
