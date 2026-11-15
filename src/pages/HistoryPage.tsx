@@ -4,6 +4,7 @@ import { api, errorMessage, formatDate, type Article } from "../api";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 import { useInternalLinks } from "../useInternalLinks";
+import { ErrorAlert } from "../ErrorAlert";
 
 interface RevisionSummary {
   version: number;
@@ -77,11 +78,7 @@ export function HistoryPage() {
       <h1 className="history-title">
         変更履歴：<Link to={`/articles/${id}`}>{article.title}</Link>
       </h1>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorAlert message={error} />
       <div className="history">
         <table>
           <thead>

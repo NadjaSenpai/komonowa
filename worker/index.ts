@@ -11,6 +11,7 @@ import { MAX_FILE_BYTES, MAX_THUMB_BYTES, attachments } from "./routes/attachmen
 import { auth } from "./routes/auth";
 import { share } from "./routes/share";
 import { avatars, profile } from "./routes/profile";
+import { users } from "./routes/users";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -27,6 +28,7 @@ app.use("*", bodyLimit({ maxSize: MAX_FILE_BYTES + MAX_THUMB_BYTES + 64 * 1024, 
 app.route("/auth", auth);
 app.route("/auth", profile);
 app.route("/avatars", avatars);
+app.route("/users", users);
 app.route("/admin", admin);
 app.route("/articles", articles);
 app.route("/share", share);

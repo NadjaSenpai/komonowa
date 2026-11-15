@@ -41,6 +41,18 @@ export interface User {
   avatar_id: string | null;
 }
 
+/** 権限の表示名 */
+export function roleLabel(role: string) {
+  return role === "admin" ? "管理者" : "メンバー";
+}
+
+/** タグと、そのタグが付いた記事（ごみ箱を除く）の数 */
+export interface Tag {
+  id: string;
+  name: string;
+  count: number;
+}
+
 export interface Article {
   id: string;
   title: string;

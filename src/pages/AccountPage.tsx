@@ -1,9 +1,12 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router";
 import { useAuth } from "../App";
-import { api, errorMessage, type User } from "../api";
+import { api, errorMessage, roleLabel, type User } from "../api";
 import { Avatar } from "../Avatar";
 import { AvatarCropper } from "../AvatarCropper";
+import { BIO_MAX, PASSWORD_MIN } from "../../shared/accounts";
+import type { Profile } from "./UserPage";
+import { ErrorAlert } from "../ErrorAlert";
 
 function ProfileSection() {
   const { user, setUser } = useAuth();
@@ -13,7 +16,22 @@ function ProfileSection() {
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  // 自己紹介はログイン中の利用者情報に入っていないので、自分のユーザーページから読む。savedBio が null の間は読み込み中
+  const [bio, setBio] = useState("");
+  const [savedBio, setSavedBio] = useState<string | null>(null);
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    api
+      .get<{ user: Profile }>(`/users/${userId}`)
+      .then((r) => {
+        setBio(r.user.bio);
+        setSavedBio(r.user.bio);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, [userId]);
   if (!user) return null;
+  const unchanged = name.trim() === user.name && bio.trim() === savedBio;
 
   async function run(action: () => Promise<{ user: User }>, done: string) {
     setBusy(true);
@@ -30,13 +48,19 @@ function ProfileSection() {
     }
   }
 
-  function saveName(e: FormEvent) {
+  function saveProfile(e: FormEvent) {
     e.preventDefault();
-    void run(async () => {
-      const r = await api.patch<{ user: User }>("/auth/profile", { name });
-      setName(r.user.name);
-      return r;
-    }, "表示名を変更しました。過去の記事や履歴の表示も新しい名前になります。");
+    const renamed = name.trim() !== user?.name;
+    void run(
+      async () => {
+        const r = await api.patch<{ user: User; bio: string }>("/auth/profile", { name, bio });
+        setName(r.user.name);
+        setBio(r.bio);
+        setSavedBio(r.bio);
+        return r;
+      },
+      renamed ? "プロフィールを保存しました。過去の記事や履歴の表示も新しい名前になります。" : "プロフィールを保存しました。",
+    );
   }
 
   function pickImage(e: ChangeEvent<HTMLInputElement>) {
@@ -83,25 +107,36 @@ function ProfileSection() {
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={pickImage} />
         {cropFile && <AvatarCropper file={cropFile} onCancel={() => setCropFile(null)} onDone={uploadAvatar} />}
       </div>
-      <form onSubmit={saveName} className="stack">
+      <form onSubmit={saveProfile} className="stack">
         <label>
           表示名（50文字まで）
           <input value={name} maxLength={50} autoComplete="nickname" onChange={(e) => setName(e.target.value)} required />
         </label>
-        <button type="submit" disabled={busy || name.trim() === "" || name.trim() === user.name}>
-          名前を保存
+        <label>
+          自己紹介（{BIO_MAX}文字まで）
+          <textarea
+            value={bio}
+            maxLength={BIO_MAX}
+            rows={8}
+            disabled={savedBio === null}
+            placeholder={savedBio === null ? "読み込み中…" : "担当していること、好きなもの、連絡のつきやすい時間など"}
+            onChange={(e) => setBio(e.target.value)}
+          />
+        </label>
+        <p className="hint">記事と同じ書き方（Markdown）が使えます。リンクは [文字](https://…)、記事へのリンクは [[記事のタイトル]] で書けます。</p>
+        <button type="submit" disabled={busy || savedBio === null || name.trim() === "" || unchanged}>
+          プロフィールを保存
         </button>
+        <p className="small">
+          <Link to={`/users/${user.id}`}>自分のページを見る</Link>
+        </p>
       </form>
       {message && (
         <p className="notice" role="status">
           {message}
         </p>
       )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorAlert message={error} />
     </section>
   );
 }
@@ -135,15 +170,11 @@ function PasswordSection() {
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
         </label>
         <label>
-          新しいパスワード（12文字以上）
-          <input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(e) => setNext(e.target.value)} required />
+          新しいパスワード（{PASSWORD_MIN}文字以上）
+          <input type="password" autoComplete="new-password" minLength={PASSWORD_MIN} value={newPassword} onChange={(e) => setNext(e.target.value)} required />
         </label>
         {message && <p className="notice">{message}</p>}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" className="secondary">
           パスワードを変更
         </button>
@@ -198,11 +229,7 @@ function EmailSection() {
             {message}
           </p>
         )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" className="secondary" disabled={busy}>
           {busy ? "送信中…" : "確認メールを送る"}
         </button>
@@ -211,7 +238,7 @@ function EmailSection() {
   );
 }
 
-/** 退会。名前・メールアドレス・アイコン・パスワードを消す（記事と履歴は「（削除されたユーザー）」として残る） */
+/** 退会。名前・メールアドレス・アイコン・自己紹介・パスワードを消す（記事と履歴は「（削除されたユーザー）」として残る） */
 function WithdrawSection() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
@@ -221,7 +248,7 @@ function WithdrawSection() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!confirm("本当に退会しますか？名前・メールアドレス・アイコン・パスワードが消え、取り消せません。")) return;
+    if (!confirm("本当に退会しますか？名前・メールアドレス・アイコン・自己紹介・パスワードが消え、取り消せません。")) return;
     setError("");
     setBusy(true);
     try {
@@ -238,18 +265,14 @@ function WithdrawSection() {
     <section>
       <h2>退会</h2>
       <p className="muted small">
-        退会すると、名前・メールアドレス・アイコン・パスワードが消えます。書いた記事と履歴は「（削除されたユーザー）」の名前で残ります。取り消せません。所有者は退会できません。
+        退会すると、名前・メールアドレス・アイコン・自己紹介・パスワードが消えます。書いた記事と履歴は「（削除されたユーザー）」の名前で残ります。取り消せません。所有者は退会できません。
       </p>
       <form onSubmit={submit} className="stack">
         <label>
           現在のパスワード
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
         </label>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" className="danger" disabled={busy}>
           {busy ? "処理中…" : "退会する"}
         </button>
@@ -261,15 +284,22 @@ function WithdrawSection() {
 export function AccountPage() {
   const { user } = useAuth();
   return (
-    <div className="narrow">
+    <div className="account">
       <h1>アカウント</h1>
       <p className="muted">
-        {user?.email}（{user?.role === "admin" ? "管理者" : "メンバー"}）
+        {user?.email}（{user && roleLabel(user.role)}）
       </p>
-      <ProfileSection />
-      <EmailSection />
-      <PasswordSection />
-      <WithdrawSection />
+      {/* 広い画面では、左にほかの人に見えるもの（プロフィール）、右にログインに関わるものを並べる。狭い画面では縦に続く */}
+      <div className="account-columns">
+        <div className="account-column">
+          <ProfileSection />
+        </div>
+        <div className="account-column">
+          <EmailSection />
+          <PasswordSection />
+          <WithdrawSection />
+        </div>
+      </div>
     </div>
   );
 }

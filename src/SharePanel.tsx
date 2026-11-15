@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { api, errorMessage, formatDate } from "./api";
+import { ErrorAlert } from "./ErrorAlert";
 
 export interface Share {
   url: string;
@@ -110,11 +111,7 @@ export function SharePanel({ articleId, share, onChange }: { articleId: string; 
           </button>
         </>
       )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorAlert message={error} />
     </section>
   );
 }

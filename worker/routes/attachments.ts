@@ -240,17 +240,22 @@ attachments.get("/attachments/:id/thumb", requireAuth, async (c) => {
   if (!row.content_type.startsWith("image/")) fail(404, "ファイルが見つかりません");
   const object = (row.thumb_key ? await c.env.FILES.get(row.thumb_key) : null) ?? (await c.env.FILES.get(row.r2_key));
   if (!object) fail(404, "ファイルが見つかりません");
+  return imageResponse(object, object.httpMetadata?.contentType ?? row.content_type, "private, max-age=300");
+});
+
+/** 画像をその場で表示するための応答（小さい版とアイコン）。種類は保存時に中身から決めたもの */
+export function imageResponse(object: R2ObjectBody, contentType: string, cacheControl: string) {
   return new Response(object.body, {
     headers: {
-      "content-type": object.httpMetadata?.contentType ?? row.content_type,
+      "content-type": contentType,
       "content-length": String(object.size),
       "x-content-type-options": "nosniff",
-      "cache-control": "private, max-age=300",
+      "cache-control": cacheControl,
       "cross-origin-resource-policy": "same-origin",
       "content-security-policy": "default-src 'none'; sandbox",
     },
   });
-});
+}
 
 attachments.get("/attachments/:id", requireAuth, async (c) => {
   const row = await findVisible(c, c.req.param("id"));

@@ -1,7 +1,20 @@
 import { randomToken, sha256 } from "./crypto";
 import { fail } from "./http";
+import { revokeInvitesFrom, revokeResetTokens } from "./tokens";
 
 import { DELETED_EMAIL_DOMAIN, DELETED_NAME } from "../shared/accounts";
+
+/** 招待や登録で、そのアドレスの利用者がもういるとき */
+export const EMAIL_REGISTERED = "このメールアドレスはすでに登録されています";
+/** メールアドレスの変更先を、ほかの人が使っているとき */
+export const EMAIL_TAKEN = "このメールアドレスはすでに使われています";
+/** 強制退会したアドレス */
+export const EMAIL_BLOCKED = "このメールアドレスは使えません";
+
+/** アイコン画像の R2 キー */
+export function avatarKey(userId: string, avatarId: string) {
+  return `avatars/${userId}/${avatarId}`;
+}
 
 const emailHash = (email: string) => sha256(email.trim().toLowerCase());
 
@@ -16,7 +29,7 @@ export async function isBlocked(db: D1Database, email: string): Promise<boolean>
 }
 
 /**
- * 退会・強制退会の共通処理。名前・メールアドレス・アイコン・パスワードを消し、ログインできなくする。
+ * 退会・強制退会の共通処理。名前・メールアドレス・アイコン・自己紹介・パスワードを消し、ログインできなくする。
  * 有効な管理者が 0 人になる場合は 409。block なら、元のアドレスを締め出す
  */
 export async function removeAccount(env: Env, userId: string, options: { block: boolean }): Promise<void> {
@@ -28,7 +41,7 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
   const placeholder = `deleted-${userId}${DELETED_EMAIL_DOMAIN}`;
   // 有効な管理者が 0 人にならないよう、条件付き UPDATE で守る
   const res = await env.DB.prepare(
-    `UPDATE users SET name = ?1, email = ?2, password_hash = ?3, avatar_id = NULL, avatar_type = NULL,
+    `UPDATE users SET name = ?1, email = ?2, password_hash = ?3, avatar_id = NULL, avatar_type = NULL, bio = '',
             status = 'disabled', role = 'member', is_owner = 0, deleted_at = ?4, updated_at = ?4
       WHERE id = ?5 AND deleted_at IS NULL
         AND (role <> 'admin' OR status <> 'active'
@@ -42,12 +55,8 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
   const statements = [
     env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId),
     env.DB.prepare("DELETE FROM email_changes WHERE user_id = ?").bind(userId),
-    env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, userId),
-    // この人が送った、まだ使われていない招待は取り消す
-    env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND created_by = ? AND used_at IS NULL AND revoked_at IS NULL").bind(
-      now,
-      userId,
-    ),
+    revokeResetTokens(env.DB, userId, now),
+    revokeInvitesFrom(env.DB, userId, now),
     // 招待の記録やログイン失敗の記録に残る元のアドレスも消す
     env.DB.prepare("UPDATE auth_tokens SET email = ? WHERE kind = 'invite' AND email = ?").bind(placeholder, user.email),
     env.DB.prepare("DELETE FROM login_failures WHERE email = ?").bind(user.email),
@@ -60,5 +69,5 @@ export async function removeAccount(env: Env, userId: string, options: { block: 
     );
   }
   await env.DB.batch(statements);
-  if (user.avatar_id) await env.FILES.delete(`avatars/${userId}/${user.avatar_id}`);
+  if (user.avatar_id) await env.FILES.delete(avatarKey(userId, user.avatar_id));
 }

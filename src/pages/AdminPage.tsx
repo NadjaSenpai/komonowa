@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../App";
-import { api, errorMessage, formatDate } from "../api";
+import { api, errorMessage, formatDate, roleLabel, type Tag } from "../api";
 import { Byline } from "../Avatar";
 import { inviteStatus, openInvites, type Invite } from "../invites";
 import { DELETED_EMAIL_DOMAIN, DELETED_NAME } from "../../shared/accounts";
+import { ErrorAlert } from "../ErrorAlert";
 
 interface AdminUser {
   id: string;
@@ -30,12 +31,6 @@ interface SharedItem {
   created_at: number;
   created_by_name: string;
   has_passcode: boolean;
-}
-
-interface Tag {
-  id: string;
-  name: string;
-  count: number;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -137,11 +132,7 @@ export function AdminPage() {
   return (
     <div className="admin">
       <h1>管理</h1>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorAlert message={error} />
       {sent && (
         <p className="notice" role="status">
           {sent}{" "}
@@ -185,7 +176,7 @@ export function AdminPage() {
               {shownInvites.map((i) => (
                 <tr key={i.id}>
                   <td>{i.email.endsWith(DELETED_EMAIL_DOMAIN) ? DELETED_NAME : i.email}</td>
-                  <td>{i.role === "admin" ? "管理者" : "メンバー"}</td>
+                  <td>{roleLabel(i.role)}</td>
                   <td>{inviteStatus(i)}</td>
                   <td>{formatDate(i.expires_at)}</td>
                   <td>{i.created_by_name}</td>
@@ -293,7 +284,7 @@ export function AdminPage() {
                         className="danger small"
                         onClick={() =>
                           confirm(
-                            `${u.name} さんを強制退会しますか？名前・メールアドレス・アイコンが消え、同じメールアドレスでは招待できなくなります。記事は「（削除されたユーザー）」の名前で残ります。取り消せません。`,
+                            `${u.name} さんを強制退会しますか？名前・メールアドレス・アイコン・自己紹介が消え、同じメールアドレスでは招待できなくなります。記事は「（削除されたユーザー）」の名前で残ります。取り消せません。`,
                           ) && run(() => api.post(`/admin/users/${u.id}/remove`))
                         }
                       >

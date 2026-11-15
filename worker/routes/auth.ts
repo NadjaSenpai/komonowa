@@ -3,17 +3,15 @@ import { getCookie } from "hono/cookie";
 import { getDummyHash, hashPassword, safeStringEqual, sha256, verifyPassword } from "../crypto";
 import { verifyCurrentPassword } from "../reauth";
 import type { AppEnv } from "../env";
-import { email, fail, password, readJson, str } from "../http";
-import { isBlocked, removeAccount } from "../accounts";
-import { clearAttempts, purgeAttempts, takeAttempt } from "../attempts";
+import { email, fail, isUniqueViolation, password, readJson, str, text } from "../http";
+import { EMAIL_BLOCKED, EMAIL_REGISTERED, EMAIL_TAKEN, isBlocked, removeAccount } from "../accounts";
+import { ATTEMPT_WINDOW_MS, clearAttempts, purgeAttempts, takeAttempt } from "../attempts";
 import { mailer } from "../mail";
 import { emailChangedNotice } from "../mailTemplates";
 import { SESSION_COOKIE, clearSessionCookie, createSession, requireAuth, revokeUserSessions } from "../session";
-import { EMAIL_BLOCKED, EMAIL_TAKEN } from "./profile";
+import { LINK_GONE, readToken, revokeEmailChanges, revokeResetTokens } from "../tokens";
 
-const LOCK_WINDOW_MS = 15 * 60 * 1000;
-const MAX_FAILURES = 10;
-const LOGIN_ATTEMPTS = { table: "login_failures", column: "email" } as const;
+const LOGIN_ATTEMPTS = { table: "login_failures", column: "email", windowMs: ATTEMPT_WINDOW_MS, limit: 10 } as const;
 
 export const auth = new Hono<AppEnv>();
 
@@ -28,8 +26,7 @@ auth.post("/setup", async (c) => {
   const expected = c.env.SETUP_TOKEN;
   if (!expected || expected.length < 32) fail(503, "SETUP_TOKEN（32文字以上）が設定されていません");
   const body = await readJson(c);
-  const token = typeof body.token === "string" ? body.token : "";
-  if (!(await safeStringEqual(token, expected))) fail(403, "セットアップトークンが正しくありません");
+  if (!(await safeStringEqual(text(body, "token"), expected))) fail(403, "セットアップトークンが正しくありません");
   const addr = email(body);
   const name = str(body, "name", { max: 50, label: "表示名" });
   const hash = await hashPassword(password(body));
@@ -48,11 +45,11 @@ auth.post("/setup", async (c) => {
 
 auth.post("/login", async (c) => {
   const body = await readJson(c);
-  const addr = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const pass = typeof body.password === "string" ? body.password : "";
+  const addr = text(body, "email").trim().toLowerCase();
+  const pass = text(body, "password");
   if (!addr || !pass) fail(400, "メールアドレスとパスワードを入力してください");
-  // 先に試しを記録する（失敗として残り、成功したら消す）。同時に送られても MAX_FAILURES 回までしか確かめない
-  const attempt = await takeAttempt(c.env.DB, LOGIN_ATTEMPTS, addr, LOCK_WINDOW_MS, MAX_FAILURES);
+  // 先に試しを記録する（失敗として残り、成功したら消す）。同時に送られても limit 回までしか確かめない
+  const attempt = await takeAttempt(c.env.DB, LOGIN_ATTEMPTS, addr);
   if (attempt === null) fail(429, "ログイン失敗が続いたため一時的にロックしています。15分ほど待ってください");
 
   const user = await c.env.DB.prepare("SELECT id, email, name, role, status, password_hash, avatar_id FROM users WHERE email = ?")
@@ -60,7 +57,7 @@ auth.post("/login", async (c) => {
     .first<{ id: string; email: string; name: string; role: string; status: string; password_hash: string; avatar_id: string | null }>();
   const ok = await verifyPassword(pass, user?.password_hash ?? (await getDummyHash()));
   if (!user || !ok || user.status !== "active") {
-    await purgeAttempts(c.env.DB, LOGIN_ATTEMPTS, LOCK_WINDOW_MS).run();
+    await purgeAttempts(c.env.DB, LOGIN_ATTEMPTS);
     fail(401, "メールアドレスまたはパスワードが正しくありません");
   }
   await clearAttempts(c.env.DB, LOGIN_ATTEMPTS, addr);
@@ -89,15 +86,14 @@ interface TokenRow {
 }
 
 async function findToken(db: D1Database, kind: "invite" | "reset", token: unknown): Promise<TokenRow> {
-  if (typeof token !== "string" || token.length < 20 || token.length > 100) fail(400, "リンクが正しくありません");
   const row = await db
     .prepare(
       `SELECT token_hash, email, role, user_id FROM auth_tokens
         WHERE token_hash = ? AND kind = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?`,
     )
-    .bind(await sha256(token), kind, Date.now())
+    .bind(await sha256(readToken(token)), kind, Date.now())
     .first<TokenRow>();
-  if (!row) fail(410, "リンクが無効か期限切れです。管理者に再発行を依頼してください");
+  if (!row) fail(410, LINK_GONE);
   return row;
 }
 
@@ -107,7 +103,7 @@ async function consumeToken(db: D1Database, tokenHash: string): Promise<void> {
     .prepare("UPDATE auth_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND revoked_at IS NULL AND expires_at > ?")
     .bind(Date.now(), tokenHash, Date.now())
     .run();
-  if (res.meta.changes === 0) fail(410, "リンクが無効か期限切れです。管理者に再発行を依頼してください");
+  if (res.meta.changes === 0) fail(410, LINK_GONE);
 }
 
 auth.post("/invite/check", async (c) => {
@@ -122,7 +118,7 @@ auth.post("/invite/accept", async (c) => {
   const name = str(body, "name", { max: 50, label: "表示名" });
   const hash = await hashPassword(password(body));
   if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(row.email).first()) {
-    fail(409, "このメールアドレスはすでに登録されています");
+    fail(409, EMAIL_REGISTERED);
   }
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -144,10 +140,10 @@ auth.post("/invite/accept", async (c) => {
     ]);
   } catch (err) {
     // 確かめた直後にほかの人が同じアドレスで登録した
-    if (err instanceof Error && err.message.includes("UNIQUE")) fail(409, "このメールアドレスはすでに登録されています");
+    if (isUniqueViolation(err)) fail(409, EMAIL_REGISTERED);
     throw err;
   }
-  if (created[0]!.meta.changes === 0) fail(410, "リンクが無効か期限切れです。管理者に再発行を依頼してください");
+  if (created[0]!.meta.changes === 0) fail(410, LINK_GONE);
   await createSession(c, id);
   return c.json({ user: { id, email: row.email, name, role: row.role ?? "member", avatar_id: null } }, 201);
 });
@@ -156,7 +152,7 @@ auth.post("/reset/check", async (c) => {
   const body = await readJson(c);
   const row = await findToken(c.env.DB, "reset", body.token);
   const user = await c.env.DB.prepare("SELECT email FROM users WHERE id = ? AND status = 'active'").bind(row.user_id).first<{ email: string }>();
-  if (!user) fail(410, "リンクが無効か期限切れです。管理者に再発行を依頼してください");
+  if (!user) fail(410, LINK_GONE);
   return c.json({ email: user.email });
 });
 
@@ -165,7 +161,7 @@ auth.post("/reset/accept", async (c) => {
   const row = await findToken(c.env.DB, "reset", body.token);
   const hash = await hashPassword(password(body));
   const user = await c.env.DB.prepare("SELECT id FROM users WHERE id = ? AND status = 'active'").bind(row.user_id).first<{ id: string }>();
-  if (!user) fail(410, "リンクが無効か期限切れです。管理者に再発行を依頼してください");
+  if (!user) fail(410, LINK_GONE);
   await consumeToken(c.env.DB, row.token_hash);
   await c.env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?").bind(hash, Date.now(), user.id).run();
   await revokeUserSessions(c.env.DB, user.id);
@@ -180,9 +176,7 @@ const EMAIL_LINK_GONE = "リンクが無効か期限切れです。もう一度�
  */
 auth.post("/email/confirm", async (c) => {
   const body = await readJson(c);
-  const token = body.token;
-  if (typeof token !== "string" || token.length < 20 || token.length > 100) fail(400, "リンクが正しくありません");
-  const tokenHash = await sha256(token);
+  const tokenHash = await sha256(readToken(body.token));
   const now = Date.now();
   const row = await c.env.DB.prepare(
     `SELECT e.user_id, e.new_email, u.email AS old_email FROM email_changes e JOIN users u ON u.id = e.user_id
@@ -203,15 +197,12 @@ auth.post("/email/confirm", async (c) => {
   try {
     await c.env.DB.batch([
       c.env.DB.prepare("UPDATE users SET email = ?, updated_at = ? WHERE id = ?").bind(row.new_email, now, row.user_id),
-      c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(
-        now,
-        row.user_id,
-      ),
-      c.env.DB.prepare("UPDATE email_changes SET revoked_at = ? WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, row.user_id),
+      revokeResetTokens(c.env.DB, row.user_id, now),
+      revokeEmailChanges(c.env.DB, row.user_id, now),
     ]);
   } catch (err) {
     // 確かめた直後にほかの人が同じアドレスで登録した
-    if (err instanceof Error && err.message.includes("UNIQUE")) fail(409, EMAIL_TAKEN);
+    if (isUniqueViolation(err)) fail(409, EMAIL_TAKEN);
     throw err;
   }
   // お知らせは届かなくても変更は取り消さない
@@ -224,16 +215,15 @@ auth.post("/email/confirm", async (c) => {
 });
 
 /**
- * 退会。名前・メールアドレス・アイコン・パスワードを消す（記事と履歴は「（削除されたユーザー）」として残る）。
+ * 退会。名前・メールアドレス・アイコン・自己紹介・パスワードを消す（記事と履歴は「（削除されたユーザー）」として残る）。
  * アドレスは締め出さないので、あとでまた招待できる
  */
 auth.post("/withdraw", requireAuth, async (c) => {
   const body = await readJson(c);
-  const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
   const row = await c.env.DB.prepare("SELECT password_hash, is_owner FROM users WHERE id = ?")
     .bind(c.var.user.id)
     .first<{ password_hash: string; is_owner: number }>();
-  await verifyCurrentPassword(c.env.DB, c.var.user.id, current, row?.password_hash);
+  await verifyCurrentPassword(c.env.DB, c.var.user.id, text(body, "currentPassword"), row?.password_hash);
   if (row?.is_owner) fail(409, "所有者は退会できません。先にほかの管理者に所有者を譲ってください（手順は運用手順書の「所有者」）");
   await removeAccount(c.env, c.var.user.id, { block: false });
   clearSessionCookie(c);
@@ -243,10 +233,9 @@ auth.post("/withdraw", requireAuth, async (c) => {
 /** ログイン中の利用者が自分のパスワードを変える */
 auth.post("/password", requireAuth, async (c) => {
   const body = await readJson(c);
-  const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
   const next = password(body, "newPassword");
   const row = await c.env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(c.var.user.id).first<{ password_hash: string }>();
-  await verifyCurrentPassword(c.env.DB, c.var.user.id, current, row?.password_hash);
+  await verifyCurrentPassword(c.env.DB, c.var.user.id, text(body, "currentPassword"), row?.password_hash);
   await c.env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
     .bind(await hashPassword(next), Date.now(), c.var.user.id)
     .run();

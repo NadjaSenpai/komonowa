@@ -2,8 +2,10 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { useAuth } from "../App";
 import { api, errorMessage, type User } from "../api";
+import { PASSWORD_MIN } from "../../shared/accounts";
+import { ErrorAlert } from "../ErrorAlert";
 
-const PASSWORD_HINT = "12文字以上";
+const PASSWORD_HINT = `${PASSWORD_MIN}文字以上`;
 
 /** 送信後に画面を移る前に入力欄から離れる（iPhone でキーボード用にずれた表示を戻す） */
 function leaveForm() {
@@ -26,6 +28,23 @@ function AuthCard({ title, children }: { title: string; children: ReactNode }) {
 function useFragmentToken() {
   const location = useLocation();
   return location.hash.replace(/^#/, "");
+}
+
+/** 招待・再設定のリンクを確かめる。使えるリンクなら宛先のメールアドレス、確かめている間と使えないときは null */
+function useLinkEmail(kind: "invite" | "reset", token: string, onError: (message: string) => void) {
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    api
+      .post<{ email: string }>(`/auth/${kind}/check`, { token })
+      .then((r) => setEmail(r.email))
+      .catch((err) => onError(errorMessage(err)));
+  }, [kind, token, onError]);
+  return email;
+}
+
+/** リンクを確かめている間の表示。使えなかったら、その理由 */
+function LinkPending({ error }: { error: string }) {
+  return error ? <p className="error">{error}</p> : <p className="muted">確認中…</p>;
 }
 
 export function LoginPage() {
@@ -99,11 +118,7 @@ export function LoginPage() {
             </button>
           </span>
         </label>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" disabled={busy}>
           ログイン
         </button>
@@ -171,13 +186,9 @@ export function SetupPage() {
           <input type="email" autoComplete="username" {...field("email")} />
         </label>
         <label>
-          パスワード（{PASSWORD_HINT}）<input type="password" autoComplete="new-password" minLength={12} {...field("password")} />
+          パスワード（{PASSWORD_HINT}）<input type="password" autoComplete="new-password" minLength={PASSWORD_MIN} {...field("password")} />
         </label>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit">管理者を作成</button>
       </form>
     </AuthCard>
@@ -188,17 +199,10 @@ export function InvitePage() {
   const token = useFragmentToken();
   const { setUser } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    api
-      .post<{ email: string }>("/auth/invite/check", { token })
-      .then((r) => setEmail(r.email))
-      .catch((err) => setError(errorMessage(err)));
-  }, [token]);
+  const email = useLinkEmail("invite", token, setError);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -216,11 +220,7 @@ export function InvitePage() {
   return (
     <AuthCard title="komonowa に参加">
       {email === null ? (
-        error ? (
-          <p className="error">{error}</p>
-        ) : (
-          <p className="muted">確認中…</p>
-        )
+        <LinkPending error={error} />
       ) : (
         <form onSubmit={submit} className="stack">
           <label>
@@ -233,13 +233,16 @@ export function InvitePage() {
           </label>
           <label>
             パスワード（{PASSWORD_HINT}）
-            <input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input
+              type="password"
+              autoComplete="new-password"
+              minLength={PASSWORD_MIN}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
+          <ErrorAlert message={error} />
           <button type="submit">登録する</button>
         </form>
       )}
@@ -249,17 +252,10 @@ export function InvitePage() {
 
 export function ResetPage() {
   const token = useFragmentToken();
-  const [email, setEmail] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    api
-      .post<{ email: string }>("/auth/reset/check", { token })
-      .then((r) => setEmail(r.email))
-      .catch((err) => setError(errorMessage(err)));
-  }, [token]);
+  const email = useLinkEmail("reset", token, setError);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -279,11 +275,7 @@ export function ResetPage() {
           パスワードを変更しました。<Link to="/login">ログイン</Link>してください。
         </p>
       ) : email === null ? (
-        error ? (
-          <p className="error">{error}</p>
-        ) : (
-          <p className="muted">確認中…</p>
-        )
+        <LinkPending error={error} />
       ) : (
         <form onSubmit={submit} className="stack">
           <label>
@@ -292,13 +284,16 @@ export function ResetPage() {
           </label>
           <label>
             新しいパスワード（{PASSWORD_HINT}）
-            <input type="password" autoComplete="new-password" minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input
+              type="password"
+              autoComplete="new-password"
+              minLength={PASSWORD_MIN}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
           </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
+          <ErrorAlert message={error} />
           <button type="submit">変更する</button>
         </form>
       )}
@@ -342,11 +337,7 @@ export function EmailConfirmPage() {
       ) : (
         <form onSubmit={submit} className="stack">
           <p>ボタンを押すと、このメールアドレスに変更します。</p>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
+          <ErrorAlert message={error} />
           <button type="submit" disabled={busy || !token}>
             {busy ? "変更中…" : "変更を確定する"}
           </button>

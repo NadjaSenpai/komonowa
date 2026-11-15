@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import type { AppEnv } from "../env";
 import { randomPasscode, randomToken } from "../crypto";
-import { fail, int, readJson, str } from "../http";
+import { fail, int, isUniqueViolation, origin, readJson, str } from "../http";
 import { requireAuth } from "../session";
 import { extractWikiLinks, titleKey } from "../../shared/wikilinks";
 
@@ -37,7 +37,7 @@ function readTitle(body: Record<string, unknown>): string {
 function readArticleInput(body: Record<string, unknown>) {
   return {
     title: readTitle(body),
-    body: str(body, "body", { min: 0, max: 200_000, label: "本文" }),
+    body: str(body, "body", { min: 0, max: 200_000, label: "本文", trim: false }),
     tags: normalizeTags(body.tags),
   };
 }
@@ -66,9 +66,7 @@ async function batchGuardingTitle(db: D1Database, stmts: D1PreparedStatement[]) 
   try {
     return await db.batch(stmts);
   } catch (err) {
-    if (err instanceof Error && err.message.includes("UNIQUE constraint failed") && err.message.includes("title_key")) {
-      fail(409, DUPLICATE_TITLE);
-    }
+    if (isUniqueViolation(err, "title_key")) fail(409, DUPLICATE_TITLE);
     throw err;
   }
 }
@@ -277,17 +275,11 @@ articles.get("/:id", async (c) => {
     attachments: attachments!.results,
     links: links!.results,
     backlinks: backlinks!.results,
-    share: await findShare(c.env.DB, article.id, new URL(c.req.url).origin),
+    share: await findShare(c.env.DB, article.id, origin(c)),
   });
 });
 
-async function update(
-  c: import("hono").Context<AppEnv>,
-  id: string,
-  baseVersion: number,
-  input: { title: string; body: string; tags: string[] },
-  action: "edit" | "restore",
-) {
+async function update(c: Context<AppEnv>, id: string, baseVersion: number, input: { title: string; body: string; tags: string[] }, action: "edit" | "restore") {
   const revisionId = crypto.randomUUID();
   const now = Date.now();
   const userId = c.var.user.id;
@@ -349,7 +341,7 @@ articles.post("/:id/share", async (c) => {
   )
     .bind(id, randomToken(), c.var.user.id, Date.now(), id)
     .run();
-  const share = await findShare(c.env.DB, id, new URL(c.req.url).origin);
+  const share = await findShare(c.env.DB, id, origin(c));
   if (!share || !(await c.env.DB.prepare("SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL").bind(id).first())) {
     fail(404, "記事が見つかりません");
   }
@@ -365,7 +357,7 @@ articles.post("/:id/share/passcode", async (c) => {
     c.env.DB.prepare("DELETE FROM share_passcode_failures WHERE article_id = ?").bind(id),
   ]);
   if (res!.meta.changes === 0) fail(404, "共有されていません");
-  return c.json({ share: await findShare(c.env.DB, id, new URL(c.req.url).origin) });
+  return c.json({ share: await findShare(c.env.DB, id, origin(c)) });
 });
 
 /** パスワードを外す。URL を知っている人は誰でも読めるようになる */
@@ -373,7 +365,7 @@ articles.delete("/:id/share/passcode", async (c) => {
   const id = c.req.param("id");
   const res = await c.env.DB.prepare("UPDATE article_shares SET passcode = NULL, passcode_key = NULL WHERE article_id = ?").bind(id).run();
   if (res.meta.changes === 0) fail(404, "共有されていません");
-  return c.json({ share: await findShare(c.env.DB, id, new URL(c.req.url).origin) });
+  return c.json({ share: await findShare(c.env.DB, id, origin(c)) });
 });
 
 /** 共有を止める。行を消すので、その URL はすぐ見えなくなる */

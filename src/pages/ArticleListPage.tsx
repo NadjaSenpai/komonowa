@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
-import { api, errorMessage, formatDate } from "../api";
+import { api, errorMessage, formatDate, type Tag } from "../api";
 import { Byline } from "../Avatar";
 import { markdownToText } from "../markdown";
 import { WelcomeNotice } from "../WelcomeNotice";
@@ -16,12 +16,6 @@ interface ListItem {
   tags: string[];
   /** 本文の最初の画像（添付 ID） */
   cover: string | null;
-}
-
-interface Tag {
-  id: string;
-  name: string;
-  count: number;
 }
 
 export function ArticleListPage() {

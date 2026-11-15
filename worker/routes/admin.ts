@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { randomToken, sha256 } from "../crypto";
 import type { AppEnv } from "../env";
-import { email, fail, readJson, str } from "../http";
+import { email, fail, isUniqueViolation, origin, readJson, str } from "../http";
 import { requireAdmin, requireAuth, revokeUserSessions } from "../session";
 import { sendOrFail } from "../mail";
 import { inviteMail, resetMail } from "../mailTemplates";
+import { revokeInvitesFrom, revokeResetTokens } from "../tokens";
 import { assertTitleFree } from "./articles";
 import { deleteObjects } from "./attachments";
-import { isBlocked, removeAccount } from "../accounts";
-import { EMAIL_BLOCKED } from "./profile";
+import { EMAIL_BLOCKED, EMAIL_REGISTERED, isBlocked, removeAccount } from "../accounts";
 
 const HOUR = 60 * 60 * 1000;
 const RESTORE_CLASH = "同じタイトルの記事がすでにあります。どちらかのタイトルを変えてから戻してください";
@@ -56,9 +56,7 @@ admin.patch("/users/:id", async (c) => {
   if (res.meta.changes === 0) fail(409, "有効な管理者が1人以上必要です");
   // 招待できなくなった人（無効化・降格）が送った、まだ使われていない招待は取り消す（自分宛ての管理者招待で戻ってこられないように）
   if (role !== "admin" || status !== "active") {
-    await c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND created_by = ? AND used_at IS NULL AND revoked_at IS NULL")
-      .bind(Date.now(), id)
-      .run();
+    await revokeInvitesFrom(c.env.DB, id, Date.now()).run();
   }
   if (status === "disabled") {
     await revokeUserSessions(c.env.DB, id);
@@ -70,7 +68,7 @@ admin.patch("/users/:id", async (c) => {
 });
 
 /**
- * 強制退会。名前・メールアドレス・アイコン・パスワードを消し、同じアドレスを招待にもメールアドレスの変更先にも使えなくする。
+ * 強制退会。名前・メールアドレス・アイコン・自己紹介・パスワードを消し、同じアドレスを招待にもメールアドレスの変更先にも使えなくする。
  * 記事と履歴は「（削除されたユーザー）」として残る
  */
 admin.post("/users/:id/remove", async (c) => {
@@ -94,9 +92,9 @@ admin.post("/users/:id/reset-link", async (c) => {
   const token = randomToken();
   const now = Date.now();
   const expires = now + 24 * HOUR;
-  await sendOrFail(c.env, resetMail({ to: user.email, sender: c.var.user.name, url: `${new URL(c.req.url).origin}/reset#${token}`, expiresAt: expires }));
+  await sendOrFail(c.env, resetMail({ to: user.email, sender: c.var.user.name, url: `${origin(c)}/reset#${token}`, expiresAt: expires }));
   await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, id),
+    revokeResetTokens(c.env.DB, id, now),
     c.env.DB.prepare("INSERT INTO auth_tokens (token_hash, kind, user_id, created_by, expires_at, created_at) VALUES (?, 'reset', ?, ?, ?, ?)").bind(
       await sha256(token),
       id,
@@ -130,13 +128,13 @@ admin.post("/invites", async (c) => {
   }
   if (await isBlocked(c.env.DB, addr)) fail(409, EMAIL_BLOCKED);
   if (await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(addr).first()) {
-    fail(409, "このメールアドレスはすでに登録されています");
+    fail(409, EMAIL_REGISTERED);
   }
   const token = randomToken();
   const now = Date.now();
   const expires = now + hours * HOUR;
   // 先に送り、送れたときだけ記録する（失敗しても前の招待はそのまま使える）
-  await sendOrFail(c.env, inviteMail({ to: addr, inviter: c.var.user.name, role, url: `${new URL(c.req.url).origin}/invite#${token}`, expiresAt: expires }));
+  await sendOrFail(c.env, inviteMail({ to: addr, inviter: c.var.user.name, role, url: `${origin(c)}/invite#${token}`, expiresAt: expires }));
   await c.env.DB.batch([
     // 同じアドレスへの未使用の招待は置き換える
     c.env.DB.prepare("UPDATE auth_tokens SET revoked_at = ? WHERE kind = 'invite' AND email = ? AND used_at IS NULL AND revoked_at IS NULL").bind(now, addr),
@@ -183,7 +181,7 @@ admin.post("/trash/:id/restore", async (c) => {
   try {
     res = await c.env.DB.prepare("UPDATE articles SET deleted_at = NULL, deleted_by = NULL WHERE id = ? AND deleted_at IS NOT NULL").bind(id).run();
   } catch (err) {
-    if (err instanceof Error && err.message.includes("UNIQUE constraint failed")) fail(409, RESTORE_CLASH);
+    if (isUniqueViolation(err)) fail(409, RESTORE_CLASH);
     throw err;
   }
   if (res.meta.changes === 0) fail(404, "ごみ箱に記事が見つかりません");
@@ -204,7 +202,7 @@ admin.delete("/trash/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-// ---- タグ ----
+// ---- 共有 ----
 
 /** 共有中の記事。管理者はほかの人の共有も止められる */
 admin.get("/shares", async (c) => {
@@ -221,6 +219,8 @@ admin.delete("/shares/:articleId", async (c) => {
   if (res.meta.changes === 0) fail(404, "共有されていません");
   return c.json({ ok: true });
 });
+
+// ---- タグ ----
 
 admin.patch("/tags/:id", async (c) => {
   const body = await readJson(c);

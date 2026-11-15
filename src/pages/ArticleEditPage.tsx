@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
 import { useBlocker, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError, api, errorMessage, type Article } from "../api";
+import { ErrorAlert } from "../ErrorAlert";
 import { renderMarkdown } from "../markdown";
 import { applyMarkup, insertIntoTextarea, markupShortcut, type MarkupAction } from "../markup";
 import { MarkupToolbar } from "../MarkupToolbar";
@@ -271,11 +272,7 @@ export function ArticleEditPage() {
           </div>
         </div>
       )}
-      {error && !conflict && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {!conflict && <ErrorAlert message={error} />}
       <div className="actions editor-savebar">
         <span className="save-state" role="status">
           {saving ? "保存中…" : dirty ? "未保存の変更" : "変更はありません"}

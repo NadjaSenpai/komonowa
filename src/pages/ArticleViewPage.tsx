@@ -10,6 +10,7 @@ import { anyTaskChecked, clearTaskChecks, prepareTaskBoxes, toggleTaskBox } from
 import { buildToc, type TocItem } from "../toc";
 import { useInternalLinks } from "../useInternalLinks";
 import { titleKey } from "../../shared/wikilinks";
+import { ErrorAlert } from "../ErrorAlert";
 
 /** リンク先の記事がない [[タイトル]] に missing を付ける（Cosense の未作成リンクのように薄く見せる） */
 function markMissingLinks(html: string, links: WikiLink[]): string {
@@ -289,11 +290,7 @@ export function ArticleViewPage() {
                 onChange={(e) => upload(e.target.files)}
               />
             </label>
-            {uploadError && (
-              <p className="error" role="alert">
-                {uploadError}
-              </p>
-            )}
+            <ErrorAlert message={uploadError} />
           </section>
         </aside>
       </div>
