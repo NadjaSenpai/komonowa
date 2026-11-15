@@ -13,6 +13,7 @@ import { buildToc } from "../toc";
 import { useInternalLinks } from "../useInternalLinks";
 import { titleKey } from "../../shared/wikilinks";
 import { ErrorAlert } from "../ErrorAlert";
+import { FavoriteButton } from "../FavoriteButton";
 
 /** リンク先の記事がない [[タイトル]] に missing を付ける（Cosense の未作成リンクのように薄く見せる） */
 function markMissingLinks(html: string, links: WikiLink[]): string {
@@ -30,6 +31,7 @@ export function ArticleViewPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [article, setArticle] = useState<Article | null>(null);
+  const [favorite, setFavorite] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [links, setLinks] = useState<WikiLink[]>([]);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
@@ -49,11 +51,18 @@ export function ArticleViewPage() {
   const load = useCallback(() => {
     setError("");
     api
-      .get<{ article: Article; attachments: Attachment[]; links: WikiLink[]; backlinks: Backlink[]; related: Related[]; share: Share | null }>(
-        `/articles/${id}`,
-      )
+      .get<{
+        article: Article;
+        attachments: Attachment[];
+        links: WikiLink[];
+        backlinks: Backlink[];
+        related: Related[];
+        share: Share | null;
+        favorite: boolean;
+      }>(`/articles/${id}`)
       .then((r) => {
         setArticle(r.article);
+        setFavorite(r.favorite);
         setAttachments(r.attachments);
         setLinks(r.links);
         setBacklinks(r.backlinks);
@@ -215,6 +224,7 @@ export function ArticleViewPage() {
             </div>
           </div>
           {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
+          <FavoriteButton articleId={id} title={article.title} favorite={favorite} onChange={setFavorite} onError={setError} showLabel />
           <p className="meta">
             {article.pinned_at !== null && (
               <span className="shared-badge" title="記事の一覧の先頭に出ます">

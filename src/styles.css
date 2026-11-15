@@ -6,6 +6,24 @@
 @import url("./tokens.css");
 @import url("./base.css");
 
+.tag-input { position: relative; }
+.tag-combobox { position: relative; }
+.tag-input-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 4px; }
+.tag-input-chips:empty { display: none; }
+.tag-suggestions { position: absolute; inset-inline: 0; top: calc(100% + 4px); z-index: var(--z-dropdown); max-height: 300px; overflow-y: auto; border: 1px solid var(--color-rule); border-radius: var(--radius-control); background: var(--color-paper-2); box-shadow: 0 8px 24px #29342f18; }
+.tag-suggestions > div { display: flex; gap: 8px; align-items: center; padding: 10px 12px; min-height: 44px; cursor: pointer; }
+.tag-suggestions > div.active, .tag-suggestions > div:hover { background: var(--color-selected); }
+.tag-suggestions .muted { margin-left: auto; }
+.tag-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: hsl(var(--tag-hue) 35% 45%); }
+.list-views { display: flex; gap: 8px; margin-bottom: var(--space-md); flex-wrap: wrap; }
+.list-views button[aria-pressed="true"] { background: var(--color-selected); border-color: var(--color-accent); color: var(--color-accent); }
+button.favorite-toggle { min-height: 36px; width: 36px; padding: 6px; border: 1px solid transparent; background: transparent; color: var(--color-muted); }
+button.favorite-toggle:hover { border-color: var(--color-rule); background: var(--color-paper-2); }
+button.favorite-toggle.active { color: #88651e; }
+button.favorite-toggle.with-label { width: auto; gap: 8px; margin-bottom: var(--space-sm); font-size: var(--text-sm); }
+mark { background: #ede1ac; color: var(--color-ink); border-radius: 2px; }
+@media (pointer: coarse) { button.favorite-toggle { width: 44px; min-height: 44px; } }
+
 /* ---------- 基本 ---------- */
 /* スクロールバーの幅をいつも空けておく。短いページ（読み込み中など）と長いページを行き来しても、ヘッダーや本文が左右にずれない */
 html { scrollbar-gutter: stable; }

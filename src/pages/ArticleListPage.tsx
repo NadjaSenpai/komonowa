@@ -5,6 +5,8 @@ import { Byline } from "../Avatar";
 import { thumbnailUrl } from "../embeds";
 import { markdownToText } from "../markdown";
 import { PinIcon } from "../PinIcon";
+import { FavoriteButton } from "../FavoriteButton";
+import { SearchHighlight } from "../SearchHighlight";
 import { WelcomeNotice } from "../WelcomeNotice";
 import { tagHue } from "../tagColor";
 import { tagWeight } from "../tagWeight";
@@ -24,12 +26,14 @@ interface ListItem {
   cover_video: string | null;
   /** ピン留め中（絞り込んでいないときは一覧の先頭に並ぶ） */
   pinned: boolean;
+  favorite: boolean;
 }
 
 export function ArticleListPage() {
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const selected = params.getAll("tag");
+  const favoritesOnly = params.get("favorite") === "1";
   const page = Number(params.get("page")) || 1;
   const [draft, setDraft] = useState(q);
   const [items, setItems] = useState<ListItem[] | null>(null);
@@ -40,15 +44,22 @@ export function ArticleListPage() {
   useEffect(() => setDraft(q), [q]);
 
   useEffect(() => {
+    let current = true;
     setItems(null);
     setError("");
     api
       .get<{ articles: ListItem[]; hasMore: boolean }>(`/articles?${params.toString()}`)
       .then((r) => {
+        if (!current) return;
         setItems(r.articles);
         setHasMore(r.hasMore);
       })
-      .catch((err) => setError(errorMessage(err)));
+      .catch((err) => {
+        if (current) setError(errorMessage(err));
+      });
+    return () => {
+      current = false;
+    };
   }, [params]);
 
   useEffect(() => {
@@ -71,10 +82,11 @@ export function ArticleListPage() {
     }
   }
 
-  function update(next: { q?: string; tags?: string[]; page?: number }) {
+  function update(next: { q?: string; tags?: string[]; page?: number; favorite?: boolean }) {
     const p = new URLSearchParams();
     const nq = next.q ?? q;
     if (nq) p.set("q", nq);
+    if (next.favorite ?? favoritesOnly) p.set("favorite", "1");
     for (const t of next.tags ?? selected) p.append("tag", t);
     if (next.page && next.page > 1) p.set("page", String(next.page));
     setParams(p);
@@ -101,6 +113,14 @@ export function ArticleListPage() {
           <h1>記事</h1>
         </div>
         <WelcomeNotice />
+        <div className="list-views" role="group" aria-label="記事の表示">
+          <button type="button" className="secondary small" aria-pressed={!favoritesOnly} onClick={() => update({ favorite: false })}>
+            すべての記事
+          </button>
+          <button type="button" className="secondary small" aria-pressed={favoritesOnly} onClick={() => update({ favorite: true })}>
+            お気に入り
+          </button>
+        </div>
         <form onSubmit={submit} className="search">
           <input
             type="search"
@@ -169,6 +189,8 @@ export function ArticleListPage() {
             </p>
           ) : selected.length > 0 ? (
             <p className="muted">条件に一致する記事はありません。</p>
+          ) : favoritesOnly ? (
+            <p className="muted">お気に入りはまだありません。記事の星ボタンから、自分用に保存できます。</p>
           ) : (
             <p className="muted">
               記事がありません。<Link to="/articles/new">新しく作成</Link>しましょう。
@@ -195,12 +217,12 @@ export function ArticleListPage() {
                 )
               )}
               <Link to={`/articles/${a.id}`} className="title">
-                {a.title}
+                <SearchHighlight text={a.title} query={q} />
               </Link>
               {/* 抜粋を押しても記事を開く。タイトルと同じリンク先なので、読み上げとキーボードの移動からは外す */}
               <p className="excerpt">
                 <Link to={`/articles/${a.id}`} className="excerpt-link" tabIndex={-1} aria-hidden="true">
-                  {markdownToText(a.excerpt).slice(0, 120)}
+                  <SearchHighlight text={markdownToText(a.excerpt, !!q).slice(0, q ? 162 : 120)} query={q} />
                 </Link>
               </p>
               <div className="list-item-meta">
@@ -212,6 +234,18 @@ export function ArticleListPage() {
                   ))}
                 </div>
                 <p className="meta article-update">
+                  <FavoriteButton
+                    articleId={a.id}
+                    title={a.title}
+                    favorite={a.favorite}
+                    onError={setError}
+                    onChange={(favorite) => {
+                      setItems(
+                        (current) =>
+                          current?.flatMap((item) => (item.id !== a.id ? [item] : favoritesOnly && !favorite ? [] : [{ ...item, favorite }])) ?? null,
+                      );
+                    }}
+                  />
                   <button
                     type="button"
                     className={a.pinned ? "pin-toggle pinned" : "pin-toggle"}
