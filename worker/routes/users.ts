@@ -14,6 +14,20 @@ const MAX_ARTICLES = 100;
 export const users = new Hono<AppEnv>();
 users.use("*", requireAuth);
 
+/**
+ * メンバー一覧。いまログインできる人だけを、登録の古い順に出す（無効化・退会した人は出さないが、個別のページは残る）。
+ * 自己紹介は一覧で冒頭を見せる分だけ返す
+ */
+users.get("/", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.avatar_id, substr(u.bio, 1, 300) AS bio,
+            (SELECT COUNT(*) FROM articles a WHERE a.created_by = u.id AND a.deleted_at IS NULL) AS article_count
+       FROM users u WHERE u.status = 'active' AND u.deleted_at IS NULL
+      ORDER BY u.created_at, u.rowid`,
+  ).all();
+  return c.json({ users: results });
+});
+
 users.get("/:id", async (c) => {
   const id = c.req.param("id");
   const [user, articles] = await c.env.DB.batch([

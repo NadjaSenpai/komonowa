@@ -1,7 +1,7 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, NavLink, Route, Routes, ScrollRestoration, useLocation, useNavigate } from "react-router";
 import { api, type User } from "./api";
-import { Avatar } from "./Avatar";
+import { UserMenu } from "./UserMenu";
 import { ArticleEditPage } from "./pages/ArticleEditPage";
 import { ArticleListPage } from "./pages/ArticleListPage";
 import { ArticleViewPage } from "./pages/ArticleViewPage";
@@ -15,6 +15,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default:
 const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })));
 const HistoryPage = lazy(() => import("./pages/HistoryPage").then((m) => ({ default: m.HistoryPage })));
 const UserPage = lazy(() => import("./pages/UserPage").then((m) => ({ default: m.UserPage })));
+const UsersPage = lazy(() => import("./pages/UsersPage").then((m) => ({ default: m.UsersPage })));
 
 function Content({ children }: { children: ReactNode }) {
   return (
@@ -80,6 +81,7 @@ export function App() {
         <Route path="/articles/:id/edit" element={<Protected page={<ArticleEditPage />} />} />
         <Route path="/articles/:id/history" element={<Protected page={<HistoryPage />} />} />
         <Route path="/wiki/:title" element={<Protected page={<WikiLinkPage />} />} />
+        <Route path="/users" element={<Protected page={<UsersPage />} />} />
         <Route path="/users/:id" element={<Protected page={<UserPage />} />} />
         <Route path="/account" element={<Protected page={<AccountPage />} />} />
         <Route path="/admin" element={<Protected admin page={<AdminPage />} />} />
@@ -141,24 +143,17 @@ function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/" end>
             記事
           </NavLink>
-          {user?.role === "admin" && <NavLink to="/admin">管理</NavLink>}
-          <NavLink to="/help">ヘルプ</NavLink>
+          {/* /users/<id>（個人のページ）でも「メンバー」を選択中にする */}
+          <NavLink to="/users">メンバー</NavLink>
           {user && (
-            <NavLink to="/account" className="account" title="アカウント設定">
-              <Avatar userId={user.id} name={user.name} avatarId={user.avatar_id} />
-              <span>{user.name}</span>
-            </NavLink>
+            <UserMenu
+              user={user}
+              onLogout={async () => {
+                await logout();
+                navigate("/login");
+              }}
+            />
           )}
-          <button
-            type="button"
-            className="link"
-            onClick={async () => {
-              await logout();
-              navigate("/login");
-            }}
-          >
-            ログアウト
-          </button>
         </nav>
         <Link to="/articles/new" className="button small new-article">
           新しい記事
