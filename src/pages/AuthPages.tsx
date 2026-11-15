@@ -4,6 +4,7 @@ import { useAuth } from "../App";
 import { api, errorMessage, type User } from "../api";
 import { PASSWORD_MIN } from "../../shared/accounts";
 import { ErrorAlert } from "../ErrorAlert";
+import { Logo } from "../Logo";
 
 const PASSWORD_HINT = `${PASSWORD_MIN}文字以上`;
 
@@ -16,7 +17,9 @@ function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="auth">
       <div className="card">
-        <p className="brand">komonowa</p>
+        <p className="brand">
+          <Logo />
+        </p>
         <h1>{title}</h1>
         {children}
       </div>

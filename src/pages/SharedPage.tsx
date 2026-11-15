@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { ApiError, api, errorMessage, formatDate } from "../api";
 import { cleanPasscode, sharedHtml } from "../share";
 import { ErrorAlert } from "../ErrorAlert";
+import { Logo } from "../Logo";
 
 interface SharedArticle {
   title: string;
@@ -64,7 +65,9 @@ export function SharedPage() {
     return (
       <div className="auth">
         <div className="card">
-          <p className="brand">komonowa</p>
+          <p className="brand">
+            <Logo />
+          </p>
           <h1>パスワードを入れてください</h1>
           <form onSubmit={submit} className="stack">
             <p>この記事はパスワードで守られています。共有した人から聞いた6桁の数字を入れてください。</p>

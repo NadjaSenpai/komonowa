@@ -4,6 +4,7 @@ import { api, type User } from "./api";
 import { UserMenu } from "./UserMenu";
 import { ArticleEditPage } from "./pages/ArticleEditPage";
 import { ArticleListPage } from "./pages/ArticleListPage";
+import { Logo } from "./Logo";
 import { ArticleViewPage } from "./pages/ArticleViewPage";
 import { EmailConfirmPage, InvitePage, LoginPage, ResetPage, SetupPage } from "./pages/AuthPages";
 import { SharedPage } from "./pages/SharedPage";
@@ -117,7 +118,7 @@ function HelpRoute() {
     <div className="app">
       <header className="topbar">
         <Link to="/" className="brand">
-          komonowa
+          <Logo />
         </Link>
         <nav>
           <NavLink to="/login">ログイン</NavLink>
@@ -137,7 +138,7 @@ function Layout({ children }: { children: ReactNode }) {
     <div className="app">
       <header className="topbar">
         <Link to="/" className="brand">
-          komonowa
+          <Logo />
         </Link>
         <nav>
           <NavLink to="/" end>
