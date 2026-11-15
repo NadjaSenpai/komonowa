@@ -2,7 +2,7 @@ import { renderMarkdown } from "./markdown";
 
 /**
  * 共有ページ（/s/:token）の本文 HTML。
- * 添付は共有用の URL（その記事の添付だけ取れる）に読み替え、記事リンク [[ ]] はただの文字にする
+ * 添付は共有用の URL（その記事の添付だけ取れる）に読み替え、記事リンク [[ ]] と人へのリンク（/users/…）はただの文字にする
  * （外の人が押してもログイン画面になるだけで、ほかの記事のタイトルの手がかりも渡さないため）
  */
 export function sharedHtml(body: string, token: string): string {
@@ -12,7 +12,7 @@ export function sharedHtml(body: string, token: string): string {
     const attr = el.tagName === "IMG" ? "src" : "href";
     el.setAttribute(attr, prefix + el.getAttribute(attr)!.slice("/api/attachments/".length));
   }
-  for (const a of doc.body.querySelectorAll("a[href^='/wiki/']")) {
+  for (const a of doc.body.querySelectorAll("a[href^='/wiki/'], a[href^='/users/']")) {
     const span = doc.createElement("span");
     span.textContent = a.textContent;
     a.replaceWith(span);

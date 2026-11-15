@@ -10,6 +10,8 @@ articles.use("*", requireAuth);
 
 const MAX_TAGS = 20;
 const PAGE_SIZE = 30;
+/** 記事の画面に出す「関連ページ」（2ホップ）の上限 */
+const MAX_RELATED = 50;
 
 export function normalizeTags(value: unknown): string[] {
   if (value === undefined) return [];
@@ -205,6 +207,23 @@ articles.get("/", async (c) => {
   });
 });
 
+const MAX_TITLE_SUGGESTIONS = 8;
+
+/**
+ * 編集画面で [[ と打ったときの候補。タイトルに q を含む記事を、更新の新しい順に返す（q が空なら最近の記事）。
+ * 重複の判定と同じキーで比べるので、全角半角・大文字小文字の違いは気にしなくてよい
+ */
+articles.get("/titles", async (c) => {
+  const key = titleKey((c.req.query("q") ?? "").slice(0, 200));
+  const { results } = await c.env.DB.prepare(
+    `SELECT title FROM articles WHERE deleted_at IS NULL AND title_key LIKE ? ESCAPE '\\'
+      ORDER BY updated_at DESC LIMIT ?`,
+  )
+    .bind(`%${escapeLike(key)}%`, MAX_TITLE_SUGGESTIONS)
+    .all<{ title: string }>();
+  return c.json({ titles: results.map((r) => r.title) });
+});
+
 articles.get("/tags", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT t.id, t.name, COUNT(a.id) AS count
@@ -257,7 +276,7 @@ articles.get("/by-title/:title", async (c) => {
 articles.get("/:id", async (c) => {
   const article = await loadArticle(c.env.DB, c.req.param("id"));
   if (!article) fail(404, "記事が見つかりません");
-  const [attachments, links, backlinks] = await c.env.DB.batch([
+  const [attachments, links, backlinks, related] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT f.id, f.filename, f.content_type, f.size, f.created_at, u.name AS uploaded_by_name, f.uploaded_by
          FROM attachments f JOIN users u ON u.id = f.uploaded_by WHERE f.article_id = ? ORDER BY f.created_at`,
@@ -274,12 +293,23 @@ articles.get("/:id", async (c) => {
         WHERE l.target_key = (SELECT title_key FROM articles WHERE id = ?) AND a.deleted_at IS NULL AND a.id <> ?
         ORDER BY a.updated_at DESC, a.rowid DESC`,
     ).bind(article.id, article.id),
+    // 2ホップ：この記事と同じリンク先を持つ記事。via は共通のリンク先（記事があればそのタイトル、まだなければリンクのキー）
+    c.env.DB.prepare(
+      `SELECT a.id, a.title, a.updated_at, COALESCE(t.title, l1.target_key) AS via
+         FROM article_links l1
+         JOIN article_links l2 ON l2.target_key = l1.target_key AND l2.source_id <> l1.source_id
+         JOIN articles a ON a.id = l2.source_id AND a.deleted_at IS NULL
+         LEFT JOIN articles t ON t.title_key = l1.target_key AND t.deleted_at IS NULL
+        WHERE l1.source_id = ?
+        ORDER BY via, a.updated_at DESC, a.rowid DESC LIMIT ?`,
+    ).bind(article.id, MAX_RELATED),
   ]);
   return c.json({
     article,
     attachments: attachments!.results,
     links: links!.results,
     backlinks: backlinks!.results,
+    related: related!.results,
     share: await findShare(c.env.DB, article.id, origin(c)),
   });
 });

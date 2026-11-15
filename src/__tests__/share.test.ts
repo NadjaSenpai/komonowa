@@ -25,6 +25,13 @@ describe("共有ページの本文", () => {
     expect(root.innerHTML).not.toContain("/wiki/");
   });
 
+  it("人へのリンクもただの文字にする（外の人にユーザーページの場所を渡さない）", () => {
+    const root = mount(`担当は [@なかの](/users/${ID}) です`);
+    expect(root.querySelector("a")).toBeNull();
+    expect(root.textContent).toContain("@なかの");
+    expect(root.innerHTML).not.toContain("/users/");
+  });
+
   it("外部リンクはそのまま", () => {
     const root = mount("[外](https://example.com/a)");
     expect(root.querySelector("a")?.getAttribute("href")).toBe("https://example.com/a");

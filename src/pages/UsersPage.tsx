@@ -3,15 +3,7 @@ import { Link } from "react-router";
 import { api, errorMessage } from "../api";
 import { Avatar } from "../Avatar";
 import { markdownToText } from "../markdown";
-
-/** メンバー一覧の1人（GET /api/users）。bio は自己紹介の冒頭だけ */
-interface Member {
-  id: string;
-  name: string;
-  avatar_id: string | null;
-  bio: string;
-  article_count: number;
-}
+import type { Member } from "../members";
 
 /** メンバー一覧（/users）。いまログインできる人を並べ、それぞれのユーザーページへ行ける */
 export function UsersPage() {
