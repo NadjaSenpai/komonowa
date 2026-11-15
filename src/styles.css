@@ -112,6 +112,11 @@ button.link:hover { background: none; text-decoration: underline; }
 .topbar nav .account .caret { font-size: var(--text-xs); line-height: 1; }
 .user-menu-list { position: absolute; top: calc(100% + var(--space-xs)); right: 0; z-index: var(--z-dropdown); min-width: 11rem; margin: 0; padding: var(--space-xs) 0; list-style: none; background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
 .user-menu-list li.separated { margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--color-rule); }
+.theme-picker { display: grid; gap: var(--space-2xs); padding: var(--space-xs) var(--space-md); }
+.theme-picker-label { color: var(--color-muted); font-size: var(--text-xs); }
+.theme-picker-options { display: flex; gap: var(--space-2xs); }
+.theme-picker-options button { flex: 1; padding-inline: var(--space-xs); white-space: nowrap; }
+.theme-picker-options button[aria-pressed="true"] { background: var(--color-selected); border-color: var(--color-accent); color: var(--color-accent); }
 .topbar nav .user-menu-list a, .topbar nav .user-menu-list button.link { display: block; width: 100%; padding: var(--space-xs) var(--space-md); color: var(--color-ink); text-align: left; text-decoration: none; white-space: nowrap; }
 .topbar nav .user-menu-list a:hover, .topbar nav .user-menu-list button.link:hover { background: var(--color-selected); text-decoration: none; }
 /* ナビの操作は本文の主ボタンより一段静かにする */

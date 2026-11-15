@@ -23,9 +23,15 @@
   color-scheme: light dark;
 }
 
-/* ダークモード。OS の設定に従う。色は上と同じ名前を上書きするだけにする */
+/*
+ * ダークモード。色は上と同じ名前を上書きするだけにする。
+ * 「OS に合わせる」ときは OS の設定に、アカウント設定で選んだときは html の data-theme に従う（src/theme.ts）。
+ * light-dark() は古い Safari で色ごと消えるので使わず、同じ中身を2か所に書く（src/__tests__/tokens.test.ts で一致を確かめる）
+ */
+:root[data-theme="light"] { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --color-paper: #1b1a18; --color-paper-2: #232220; --color-paper-3: #2a2926;
     --color-ink: #ece9e2; --color-ink-2: #d0ccc3; --color-muted: #a19c92;
     --color-rule: #36342f; --color-field: #7a756b; --color-selected: #2d3330;
@@ -36,4 +42,16 @@
     --avatar-3-bg: #3a2b3e; --avatar-3-ink: #d9bbe0; --avatar-4-bg: #43291f; --avatar-4-ink: #f0b9a2;
     --avatar-5-bg: #3b3219; --avatar-5-ink: #e4cd89; --avatar-6-bg: #1f3a3b; --avatar-6-ink: #a3d6d8;
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #1b1a18; --color-paper-2: #232220; --color-paper-3: #2a2926;
+  --color-ink: #ece9e2; --color-ink-2: #d0ccc3; --color-muted: #a19c92;
+  --color-rule: #36342f; --color-field: #7a756b; --color-selected: #2d3330;
+  --color-logo-o: #e39a68; --color-accent: #86bba1; --color-accent-hover: #9fcab4; --color-accent-ink: #14201a; --color-focus: #86bba1;
+  --color-error: #ea8b76; --color-error-soft: #3c2520; --color-notice: #36301c; --color-success: oklch(75% 0.12 150);
+  --color-mark: #5d4d1a; --color-favorite: #e2b84c; --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.45);
+  --avatar-1-bg: #26382e; --avatar-1-ink: #acd5be; --avatar-2-bg: #28324a; --avatar-2-ink: #b5c6e8;
+  --avatar-3-bg: #3a2b3e; --avatar-3-ink: #d9bbe0; --avatar-4-bg: #43291f; --avatar-4-ink: #f0b9a2;
+  --avatar-5-bg: #3b3219; --avatar-5-ink: #e4cd89; --avatar-6-bg: #1f3a3b; --avatar-6-ink: #a3d6d8;
 }
