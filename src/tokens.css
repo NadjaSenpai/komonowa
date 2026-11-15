@@ -11,7 +11,7 @@
   --color-ink: #29342f; --color-ink-2: #3d4a43; --color-muted: #616e65;
   --color-rule: #d9dfd5; --color-field: #848f88; --color-selected: #e5ece4;
   --color-logo-o: #de8f5a; --color-accent: #365d4e; --color-accent-hover: #2b4c3f; --color-accent-ink: #fffefa; --color-focus: #365d4e;
-  --color-error-soft: #f8e9e4; --color-notice: #f7efd4;
+  --color-error-soft: #f8e9e4; --color-notice: #f7efd4; --color-mark: #ede1ac; --color-favorite: #88651e; --shadow-pop: 0 8px 24px #29342f18;
   --avatar-1-bg: #dfe9e2; --avatar-1-ink: #2f5443; --avatar-2-bg: #dfe5f0; --avatar-2-ink: #34476b;
   --avatar-3-bg: #ebe0ec; --avatar-3-ink: #5b3d63; --avatar-4-bg: #f2e1d9; --avatar-4-ink: #7a3a24;
   --avatar-5-bg: #efe7cf; --avatar-5-ink: #634d14; --avatar-6-bg: #d9eaea; --avatar-6-ink: #24585b;
@@ -20,4 +20,20 @@
   --radius-control: 6px; --radius-card: 8px;
   --content: 1100px; --measure: 65ch; --control: 40px; --control-s: 32px; --hit: 44px; --radius-pill: 999px; --rule-hair: 1px; --shadow-card: none;
   --tracking-display: -0.02em;
+  color-scheme: light dark;
+}
+
+/* ダークモード。OS の設定に従う。色は上と同じ名前を上書きするだけにする */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #151a17; --color-paper-2: #1c221f; --color-paper-3: #232b27;
+    --color-ink: #e3e8e3; --color-ink-2: #c5cec7; --color-muted: #96a39a;
+    --color-rule: #303a34; --color-field: #6f7b73; --color-selected: #24332b;
+    --color-logo-o: #e39a68; --color-accent: #8cc4a8; --color-accent-hover: #a5d3bc; --color-accent-ink: #10201a; --color-focus: #8cc4a8;
+    --color-error: #ec8a74; --color-error-soft: #3b231e; --color-notice: #33301d; --color-success: oklch(75% 0.12 150);
+    --color-mark: #5b4c16; --color-favorite: #e2b84c; --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.45);
+    --avatar-1-bg: #26382e; --avatar-1-ink: #acd5be; --avatar-2-bg: #28324a; --avatar-2-ink: #b5c6e8;
+    --avatar-3-bg: #3a2b3e; --avatar-3-ink: #d9bbe0; --avatar-4-bg: #43291f; --avatar-4-ink: #f0b9a2;
+    --avatar-5-bg: #3b3219; --avatar-5-ink: #e4cd89; --avatar-6-bg: #1f3a3b; --avatar-6-ink: #a3d6d8;
+  }
 }
