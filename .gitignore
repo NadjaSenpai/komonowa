@@ -9,6 +9,12 @@ backups/
 # 以前の静的モック（実用版には含めない）
 wiki-mock/
 
+# 手元だけの作業メモ（仕様 specs/ と運用手順 operations.md は追跡する）
+docs/superpowers/plans/
+docs/session-handoff.md
+docs/security-local-*.md
+docs/screenshots/
+
 # design tooling
 .hallmark/
 .taste-skill/
