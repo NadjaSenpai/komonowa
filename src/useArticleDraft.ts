@@ -26,10 +26,8 @@ export function useArticleDraft(key: string, value: DraftContent, enabled: boole
     const d = { key, value: content, writable, dirty };
     if (!d.writable || cleared.current) return;
     try {
-      if (!d.dirty) {
-        removeDraft(d.key);
-        return;
-      }
+      // 未編集のタブから、別タブが書いた下書きを消さない。削除は保存成功・明示的な破棄だけで行う。
+      if (!d.dirty) return;
       const ok = saveDraft(d.key, d.value);
       setError(!ok);
       if (ok) setSaved({ content, at: Date.now() });

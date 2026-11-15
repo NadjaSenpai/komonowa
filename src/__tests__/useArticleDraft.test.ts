@@ -62,4 +62,12 @@ describe("下書きの復元と退避", () => {
     expect(controller.error).toBe(true);
     expect(controller.savedAt).toBeNull();
   });
+  it("未編集のタブを閉じても、別タブが退避した下書きを消さない", async () => {
+    const key = draftKey("alice", "article");
+    await render(initial, false);
+    saveDraft(key, { ...initial, body: "別タブで書いた未保存の本文" });
+    await act(() => window.dispatchEvent(new Event("pagehide")));
+    await tick();
+    expect(loadDraft(key)?.body).toBe("別タブで書いた未保存の本文");
+  });
 });
