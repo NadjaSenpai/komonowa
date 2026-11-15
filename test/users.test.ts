@@ -45,6 +45,45 @@ describe("ユーザーページ", () => {
   });
 });
 
+describe("メンバー一覧", () => {
+  it("未ログインでは見られない", async () => {
+    await adminClient();
+    expect((await new Client().get("/api/users")).status).toBe(401);
+  });
+
+  it("メンバーも管理者も見られる。登録の古い順で、書いた記事の数が付く。メールアドレスや権限は出さない", async () => {
+    const admin = await adminClient();
+    const { client, user } = await memberClient(admin);
+    await client.patch("/api/auth/profile", { name: user.name, bio: "あ".repeat(400) });
+    await createArticle(client);
+    const trashed = await createArticle(client);
+    await client.del(`/api/articles/${trashed.id}`);
+
+    for (const viewer of [client, admin]) {
+      const res = await viewer.get("/api/users");
+      expect(res.status).toBe(200);
+      const { users } = await json(res);
+      expect(users.map((u: { name: string }) => u.name)).toEqual(["管理者", user.name]);
+      expect(users[1]).toEqual({ id: user.id, name: user.name, avatar_id: null, bio: "あ".repeat(300), article_count: 1 });
+    }
+  });
+
+  it("無効化・退会・強制退会した人は出さない（個別のページは残る）", async () => {
+    const admin = await adminClient();
+    const stays = await memberClient(admin);
+    const disabled = await memberClient(admin);
+    const left = await memberClient(admin);
+    const removed = await memberClient(admin);
+    await admin.patch(`/api/admin/users/${disabled.user.id}`, { status: "disabled" });
+    await left.client.post("/api/auth/withdraw", { currentPassword: left.password });
+    await admin.post(`/api/admin/users/${removed.user.id}/remove`);
+
+    const { users } = await json(await admin.get("/api/users"));
+    expect(users.map((u: { id: string }) => u.id)).toEqual([expect.any(String), stays.user.id]);
+    expect((await admin.get(`/api/users/${disabled.user.id}`)).status).toBe(200);
+  });
+});
+
 describe("自己紹介", () => {
   it("保存でき、前後の空白は除く。名前だけ送ったときは消えない", async () => {
     const admin = await adminClient();

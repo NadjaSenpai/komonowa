@@ -131,7 +131,7 @@ export function AdminPage() {
 
   return (
     <div className="admin">
-      <h1>管理</h1>
+      <h1>サイト管理</h1>
       <ErrorAlert message={error} />
       {sent && (
         <p className="notice" role="status">
