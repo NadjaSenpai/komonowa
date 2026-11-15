@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { wikiLinkExtension } from "../shared/wikilinks";
+import { embedVideos } from "./embeds";
 
 marked.setOptions({ gfm: true, breaks: true });
 // [[タイトル]] を記事間リンクにする（shared/wikilinks.ts。保存時のリンク解析と同じ判定）
@@ -25,16 +26,17 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
-/** Markdown を HTML にし、スクリプトなど危険な要素を取り除く */
+/** Markdown を HTML にし、スクリプトなど危険な要素を取り除く。YouTube の URL だけの行は、再生ボタン付きの枠にする（embeds.ts） */
 export function renderMarkdown(source: string): string {
   const html = marked.parse(source, { async: false });
-  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, FORBID_TAGS: ["style", "form", "input"] });
+  // iframe はサニタイズで落とす。動画の枠はそのあとに自分で組み立て、プレーヤーは再生ボタンを押したときにだけ入れる
+  return embedVideos(DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, FORBID_TAGS: ["style", "form", "input"] }));
 }
 
-/** 一覧の抜粋用。Markdown を描画してから文字だけを取り出す（見出しは除く） */
+/** 一覧の抜粋用。Markdown を描画してから文字だけを取り出す（見出しと動画の枠は除く） */
 export function markdownToText(source: string): string {
   const doc = new DOMParser().parseFromString(renderMarkdown(source), "text/html");
-  doc.body.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach((h) => h.remove());
+  doc.body.querySelectorAll("h1, h2, h3, h4, h5, h6, .video-embed").forEach((h) => h.remove());
   doc.body.querySelectorAll("p, li, pre, blockquote, td, th, br").forEach((el) => el.append(" "));
   return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
 }
