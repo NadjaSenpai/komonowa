@@ -126,6 +126,17 @@ export function ArticleViewPage() {
     }
   }
 
+  /** ピン留めの付け外し。一覧の先頭に出るかどうかだけが変わり、版は進まない */
+  async function togglePin() {
+    const pinned = article!.pinned_at !== null;
+    try {
+      await (pinned ? api.del(`/articles/${id}/pin`) : api.post(`/articles/${id}/pin`));
+      setArticle({ ...article!, pinned_at: pinned ? null : Date.now() });
+    } catch (err) {
+      alert(errorMessage(err));
+    }
+  }
+
   async function upload(files: FileList | null) {
     if (!files?.length) return;
     setUploadError("");
@@ -166,6 +177,15 @@ export function ArticleViewPage() {
               <Link className="button secondary" to={`/articles/${id}/history`}>
                 履歴
               </Link>
+              <button
+                type="button"
+                className="secondary"
+                aria-pressed={article.pinned_at !== null}
+                title="記事の一覧の先頭に出します。誰でも付け外しできます"
+                onClick={togglePin}
+              >
+                {article.pinned_at !== null ? "ピン留めを外す" : "ピン留め"}
+              </button>
               <button type="button" className="secondary" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
                 共有
               </button>
@@ -176,6 +196,11 @@ export function ArticleViewPage() {
           </div>
           {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
           <p className="meta">
+            {article.pinned_at !== null && (
+              <span className="shared-badge" title="記事の一覧の先頭に出ます">
+                ピン留め
+              </span>
+            )}
             {share && (
               <span className="shared-badge" title="URL を知っている人はログインなしで読めます">
                 共有中

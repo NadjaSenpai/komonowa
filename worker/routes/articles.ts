@@ -147,6 +147,8 @@ interface ArticleRow {
   updated_by: string;
   updated_by_name: string;
   updated_by_avatar: string | null;
+  /** ピン留めした時刻。していなければ null */
+  pinned_at: number | null;
 }
 
 async function loadArticle(db: D1Database, id: string) {
@@ -154,7 +156,7 @@ async function loadArticle(db: D1Database, id: string) {
     .prepare(
       `SELECT a.id, a.title, a.body, a.version, a.created_at, a.updated_at,
               a.created_by, cu.name AS created_by_name, cu.avatar_id AS created_by_avatar,
-              a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar, ${TAGS_JSON} AS tags
+              a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar, a.pinned_at, ${TAGS_JSON} AS tags
          FROM articles a JOIN users cu ON cu.id = a.created_by JOIN users uu ON uu.id = a.updated_by
         WHERE a.id = ? AND a.deleted_at IS NULL`,
     )
@@ -169,6 +171,8 @@ articles.get("/", async (c) => {
   const q = (c.req.query("q") ?? "").trim().slice(0, 200);
   const tags = normalizeTags(c.req.queries("tag") ?? []);
   const page = Math.max(1, Math.min(1000, Number(c.req.query("page")) || 1));
+  // ピン留めした記事を先頭に出すのは、探しものをしていないときだけ（検索・タグの結果は更新の新しい順のまま）
+  const pinsFirst = q === "" && tags.length === 0;
   const where = ["a.deleted_at IS NULL"];
   const params: unknown[] = [];
   for (const term of q.split(/\s+/).filter(Boolean).slice(0, 10)) {
@@ -186,15 +190,16 @@ articles.get("/", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.cover_id AS cover, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+            a.pinned_at IS NOT NULL AS pinned,
             ${TAGS_JSON} AS tags
        FROM articles a JOIN users uu ON uu.id = a.updated_by
       WHERE ${where.join(" AND ")}
-      ORDER BY a.updated_at DESC LIMIT ? OFFSET ?`,
+      ORDER BY ${pinsFirst ? "a.pinned_at IS NULL, a.pinned_at DESC, " : ""}a.updated_at DESC LIMIT ? OFFSET ?`,
   )
     .bind(...params, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE)
-    .all<{ id: string; tags: string }>();
+    .all<{ id: string; tags: string; pinned: number }>();
   return c.json({
-    articles: results.slice(0, PAGE_SIZE).map((r) => ({ ...r, tags: JSON.parse(r.tags) as string[] })),
+    articles: results.slice(0, PAGE_SIZE).map((r) => ({ ...r, tags: JSON.parse(r.tags) as string[], pinned: r.pinned === 1 })),
     hasMore: results.length > PAGE_SIZE,
     page,
   });
@@ -310,7 +315,12 @@ articles.delete("/:id", async (c) => {
   const id = c.req.param("id");
   // ごみ箱に入れたら共有も止める（戻したときに、忘れていた共有が勝手に再開しないように）
   const [res] = await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL").bind(Date.now(), c.var.user.id, id),
+    // ピン留めも外す（戻したときに、忘れていたピン留めが一覧の先頭に戻らないように）
+    c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ?, pinned_at = NULL WHERE id = ? AND deleted_at IS NULL").bind(
+      Date.now(),
+      c.var.user.id,
+      id,
+    ),
     c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ? AND EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NOT NULL)").bind(
       id,
       id,
@@ -330,6 +340,22 @@ async function findShare(db: D1Database, articleId: string, origin: string) {
     .first<{ token: string; passcode: string | null; created_at: number; created_by_name: string }>();
   return row ? { url: `${origin}/s/${row.token}`, passcode: row.passcode, created_at: row.created_at, created_by_name: row.created_by_name } : null;
 }
+
+/** ピン留めする。メンバーなら誰でも、どの記事でも。版や更新日時は変えない。すでにピン留め中なら、付けた時刻はそのまま */
+articles.post("/:id/pin", async (c) => {
+  const res = await c.env.DB.prepare("UPDATE articles SET pinned_at = COALESCE(pinned_at, ?) WHERE id = ? AND deleted_at IS NULL")
+    .bind(Date.now(), c.req.param("id"))
+    .run();
+  if (res.meta.changes === 0) fail(404, "記事が見つかりません");
+  return c.json({ pinned: true });
+});
+
+/** ピン留めを外す */
+articles.delete("/:id/pin", async (c) => {
+  const res = await c.env.DB.prepare("UPDATE articles SET pinned_at = NULL WHERE id = ? AND deleted_at IS NULL").bind(c.req.param("id")).run();
+  if (res.meta.changes === 0) fail(404, "記事が見つかりません");
+  return c.json({ pinned: false });
+});
 
 /** 共有を始める。メンバーなら誰でも、どの記事でも。すでに共有中ならその共有を返す */
 articles.post("/:id/share", async (c) => {

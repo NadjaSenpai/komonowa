@@ -67,6 +67,16 @@ export interface Article {
   updated_by: string;
   updated_by_name: string;
   updated_by_avatar: string | null;
+  /** ピン留めした時刻。していなければ null */
+  pinned_at: number | null;
+}
+
+/** 関連ページ（2ホップ）。この記事と同じリンク先 via を持つ記事 */
+export interface Related {
+  id: string;
+  title: string;
+  updated_at: number;
+  via: string;
 }
 
 /** 本文の [[タイトル]] のリンク先。id が null なら「まだない記事」 */

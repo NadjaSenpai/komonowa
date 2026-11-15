@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate, type Tag } from "../api";
 import { Byline } from "../Avatar";
 import { markdownToText } from "../markdown";
+import { PinIcon } from "../PinIcon";
 import { WelcomeNotice } from "../WelcomeNotice";
 
 interface ListItem {
@@ -16,6 +17,8 @@ interface ListItem {
   tags: string[];
   /** 本文の最初の画像（添付 ID） */
   cover: string | null;
+  /** ピン留め中（絞り込んでいないときは一覧の先頭に並ぶ） */
+  pinned: boolean;
 }
 
 export function ArticleListPage() {
@@ -49,6 +52,19 @@ export function ArticleListPage() {
       .then((r) => setTags(r.tags.filter((t) => t.count > 0)))
       .catch(() => undefined);
   }, []);
+
+  /** 一覧からピン留めを付け外しする。並びが変わるので、読み込み中の表示は出さずに一覧を取り直す */
+  async function togglePin(a: ListItem) {
+    setError("");
+    try {
+      await (a.pinned ? api.del(`/articles/${a.id}/pin`) : api.post(`/articles/${a.id}/pin`));
+      const r = await api.get<{ articles: ListItem[]; hasMore: boolean }>(`/articles?${params.toString()}`);
+      setItems(r.articles);
+      setHasMore(r.hasMore);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
 
   function update(next: { q?: string; tags?: string[]; page?: number }) {
     const p = new URLSearchParams();
@@ -172,6 +188,16 @@ export function ArticleListPage() {
                   ))}
                 </div>
                 <p className="meta article-update">
+                  <button
+                    type="button"
+                    className={a.pinned ? "pin-toggle pinned" : "pin-toggle"}
+                    aria-pressed={a.pinned}
+                    aria-label={a.pinned ? `「${a.title}」のピン留めを外す` : `「${a.title}」をピン留めする`}
+                    title={a.pinned ? "ピン留めを外す" : "ピン留めする（一覧の先頭に出します）"}
+                    onClick={() => togglePin(a)}
+                  >
+                    <PinIcon filled={a.pinned} />
+                  </button>
                   <Byline userId={a.updated_by} name={a.updated_by_name} avatarId={a.updated_by_avatar} />
                   <span className="meta-item">{formatDate(a.updated_at)}</span>
                 </p>

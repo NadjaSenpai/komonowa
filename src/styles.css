@@ -180,6 +180,11 @@ button.link:hover { background: none; text-decoration: underline; }
 .list-item-meta { margin-top: var(--space-sm); }
 .article-tags { gap: var(--space-xs); }
 .article-update { margin-top: var(--space-xs); font-size: var(--text-xs); }
+/* 一覧のピン留めボタン（src/PinIcon.tsx の画びょう）。付いていない間は薄い灰色の線、付けるとアクセント色で塗る */
+.pin-toggle { display: inline-grid; place-items: center; min-height: 0; padding: var(--space-3xs); border: none; background: none; color: var(--color-muted); font-size: var(--text-md); line-height: 1; opacity: 0.5; }
+.pin-toggle:hover { background: none; color: var(--color-ink); opacity: 1; }
+.pin-toggle.pinned { color: var(--color-accent); opacity: 1; }
+.pin-icon { display: block; transform: rotate(30deg); }
 .article-update .byline { min-width: 0; max-width: 100%; }
 .article-update .byline > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 
@@ -415,6 +420,7 @@ tr.selected { background: var(--color-selected); }
   input, select, textarea { font-size: max(16px, 1em); }
   button.small, .button.small { min-height: var(--hit); }
   .tag { min-height: var(--hit); }
+  .pin-toggle { min-height: var(--hit); min-width: var(--hit); }
   .markup-toolbar button, .markup-more summary { min-height: var(--hit); }
 }
 
