@@ -7,6 +7,7 @@ const THUMB = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7,
 const WEBP_THUMB = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 9]);
 const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0]);
 const PDF = new TextEncoder().encode("%PDF-1.7\n%test");
+const VIDEO = "jNQXAC9IVRw";
 
 function form(bytes: Uint8Array, name: string, thumb?: Uint8Array | string, thumbName = "thumb.png") {
   const f = new FormData();
@@ -190,6 +191,48 @@ describe("一覧の cover", () => {
 
     expect((await admin.post(`/api/articles/${article.id}/revisions/1/restore`, { baseVersion: 2 })).status).toBe(200);
     expect(await coverOf(admin, article.id)).toBe(draft.id);
+  });
+
+  it("画像より先に YouTube の動画の行があれば、動画を選ぶ", async () => {
+    const admin = await adminClient();
+    const article = await createArticle(admin, { title: "動画の記事" });
+    const image = (await json(await upload(admin, article.id, PNG, "1.png", THUMB))).attachment;
+    const pdf = (await json(await upload(admin, article.id, PDF, "a.pdf"))).attachment;
+    const videoOf = async () => (await json(await admin.get("/api/articles"))).articles.find((a: { id: string }) => a.id === article.id).cover_video;
+    const put = (body: string, baseVersion: number) => admin.put(`/api/articles/${article.id}`, { title: "動画の記事", body, tags: [], baseVersion });
+
+    // 動画が先。画像でない添付や外部の画像が前にあっても動画
+    const videoFirst = `![資料](${pdf.url})\n![外](https://example.com/a.png)\n\nhttps://youtu.be/${VIDEO}?t=90\n\n![写真](${image.url})`;
+    expect((await put(videoFirst, 1)).status).toBe(200);
+    expect(await videoOf()).toBe(VIDEO);
+    expect(await coverOf(admin, article.id)).toBe(image.id);
+
+    // 画像が先なら画像
+    expect((await put(`![写真](${image.url})\n\nhttps://youtu.be/${VIDEO}`, 2)).status).toBe(200);
+    expect(await videoOf()).toBeNull();
+    expect(await coverOf(admin, article.id)).toBe(image.id);
+
+    // 動画を外すと消え、復元すると戻る
+    expect((await put("文字だけ", 3)).status).toBe(200);
+    expect(await videoOf()).toBeNull();
+    expect((await admin.post(`/api/articles/${article.id}/revisions/2/restore`, { baseVersion: 4 })).status).toBe(200);
+    expect(await videoOf()).toBe(VIDEO);
+  });
+
+  it("文中の URL やコードブロックの中の URL は動画として選ばない", async () => {
+    const admin = await adminClient();
+    const fence = "```";
+    const bodies = [
+      `この動画 https://youtu.be/${VIDEO} を見て`,
+      `https://youtu.be/${VIDEO}\n続きの行`,
+      `${fence}\n\nhttps://youtu.be/${VIDEO}\n\n${fence}`,
+      "https://example.com/watch?v=jNQXAC9IVRw",
+    ];
+    for (const [i, body] of bodies.entries()) {
+      const article = await createArticle(admin, { title: `動画なし${i}`, body });
+      const { articles } = await json(await admin.get("/api/articles"));
+      expect(articles.find((a: { id: string }) => a.id === article.id).cover_video, body).toBeNull();
+    }
   });
 
   it("画像がなければ null", async () => {

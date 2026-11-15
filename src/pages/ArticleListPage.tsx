@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate, type Tag } from "../api";
 import { Byline } from "../Avatar";
+import { thumbnailUrl } from "../embeds";
 import { markdownToText } from "../markdown";
 import { PinIcon } from "../PinIcon";
 import { WelcomeNotice } from "../WelcomeNotice";
@@ -19,6 +20,8 @@ interface ListItem {
   tags: string[];
   /** 本文の最初の画像（添付 ID） */
   cover: string | null;
+  /** 本文で画像より先に YouTube の動画があるとき、その動画 ID。あれば cover より優先して出す */
+  cover_video: string | null;
   /** ピン留め中（絞り込んでいないときは一覧の先頭に並ぶ） */
   pinned: boolean;
 }
@@ -175,14 +178,21 @@ export function ArticleListPage() {
           {items?.map((a) => (
             <li
               key={a.id}
-              className={a.cover ? "has-cover" : undefined}
+              className={a.cover || a.cover_video ? "has-cover" : undefined}
               // 行の左の色の線。最初のタグの色にする（タグがなければ CSS の既定の灰色）
               style={a.tags[0] ? ({ "--tag-hue": tagHue(a.tags[0]) } as CSSProperties) : undefined}
             >
-              {a.cover && (
-                <Link to={`/articles/${a.id}`} className="cover" tabIndex={-1} aria-hidden="true">
-                  <img src={`/api/attachments/${a.cover}/thumb`} alt="" loading="lazy" decoding="async" />
+              {a.cover_video ? (
+                // 動画のサムネイル。ふつうの画像と見分けられるよう、再生の印を重ねる
+                <Link to={`/articles/${a.id}`} className="cover video" tabIndex={-1} aria-hidden="true">
+                  <img src={thumbnailUrl(a.cover_video, "mqdefault")} alt="" loading="lazy" decoding="async" />
                 </Link>
+              ) : (
+                a.cover && (
+                  <Link to={`/articles/${a.id}`} className="cover" tabIndex={-1} aria-hidden="true">
+                    <img src={`/api/attachments/${a.cover}/thumb`} alt="" loading="lazy" decoding="async" />
+                  </Link>
+                )
               )}
               <Link to={`/articles/${a.id}`} className="title">
                 {a.title}
