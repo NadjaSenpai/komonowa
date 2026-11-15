@@ -7,6 +7,8 @@ import { watchImages } from "./lightbox";
 import "@fontsource/line-seed-jp/400.css";
 import "@fontsource/line-seed-jp/700.css";
 import "@fontsource-variable/jetbrains-mono";
+// ロゴ専用（英字の太字だけ）
+import "@fontsource/comfortaa/latin-700.css";
 import "./styles.css";
 
 // 本文中の YouTube の再生ボタン。押されたときにだけプレーヤーを読み込む

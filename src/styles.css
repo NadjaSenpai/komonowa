@@ -104,6 +104,9 @@ button.link:hover { background: none; text-decoration: underline; }
 
 /* ---------- ログイン ---------- */
 .auth { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-md); }
+/* ロゴ（Logo.tsx）。ロゴだけ丸い字のフォント（Comfortaa）にして、最初の o だけ色を変える */
+.logo { font-family: "Comfortaa", var(--font-body, sans-serif); }
+.logo-o { color: var(--color-logo-o); }
 .auth .brand { display: block; margin: 0 0 var(--space-lg); font-size: var(--text-2xl); }
 .card { width: 100%; max-width: 400px; padding: var(--space-xl) var(--space-lg); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); }
 .card h1 { font-size: var(--text-lg); }
