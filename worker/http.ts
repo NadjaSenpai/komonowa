@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { PASSWORD_MIN } from "../shared/accounts";
 
 export function fail(status: ContentfulStatusCode, message: string, extra?: Record<string, unknown>): never {
   throw new HTTPException(status, {
@@ -52,7 +53,6 @@ export function email(body: Record<string, unknown>): string {
   return value;
 }
 
-export const PASSWORD_MIN = 12;
 export function password(body: Record<string, unknown>, key = "password"): string {
   return str(body, key, { min: PASSWORD_MIN, max: 256, label: "パスワード", trim: false });
 }

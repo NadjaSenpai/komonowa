@@ -72,84 +72,22 @@ export function App() {
         <Route path="/reset" element={<ResetPage />} />
         <Route path="/email" element={<EmailConfirmPage />} />
         <Route path="/help" element={<HelpRoute />} />
-        <Route
-          path="/"
-          element={
-            <Protected>
-              <ArticleListPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/articles/new"
-          element={
-            <Protected>
-              <ArticleEditPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/articles/:id"
-          element={
-            <Protected>
-              <ArticleViewPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/articles/:id/edit"
-          element={
-            <Protected>
-              <ArticleEditPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/articles/:id/history"
-          element={
-            <Protected>
-              <HistoryPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/wiki/:title"
-          element={
-            <Protected>
-              <WikiLinkPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/account"
-          element={
-            <Protected>
-              <AccountPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="/admin"
-          element={
-            <Protected admin>
-              <AdminPage />
-            </Protected>
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <Protected>
-              <p>ページが見つかりません。</p>
-            </Protected>
-          }
-        />
+        {/* ここから下はログインが必要 */}
+        <Route path="/" element={<Protected page={<ArticleListPage />} />} />
+        <Route path="/articles/new" element={<Protected page={<ArticleEditPage />} />} />
+        <Route path="/articles/:id" element={<Protected page={<ArticleViewPage />} />} />
+        <Route path="/articles/:id/edit" element={<Protected page={<ArticleEditPage />} />} />
+        <Route path="/articles/:id/history" element={<Protected page={<HistoryPage />} />} />
+        <Route path="/wiki/:title" element={<Protected page={<WikiLinkPage />} />} />
+        <Route path="/account" element={<Protected page={<AccountPage />} />} />
+        <Route path="/admin" element={<Protected admin page={<AdminPage />} />} />
+        <Route path="*" element={<Protected page={<p>ページが見つかりません。</p>} />} />
       </Routes>
     </AuthContext.Provider>
   );
 }
 
-function Protected({ children, admin = false }: { children: ReactNode; admin?: boolean }) {
+function Protected({ page, admin = false }: { page: ReactNode; admin?: boolean }) {
   const { user } = useAuth();
   const location = useLocation();
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
@@ -159,7 +97,7 @@ function Protected({ children, admin = false }: { children: ReactNode; admin?: b
         <p>管理者のみ表示できます。</p>
       </Layout>
     );
-  return <Layout>{children}</Layout>;
+  return <Layout>{page}</Layout>;
 }
 
 /** ヘルプはログインしていなくても読める（ログイン画面・招待画面から開けるように） */

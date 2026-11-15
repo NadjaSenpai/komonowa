@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { useParams } from "react-router";
 import { ApiError, api, errorMessage, formatDate } from "../api";
 import { cleanPasscode, sharedHtml } from "../share";
+import { ErrorAlert } from "../ErrorAlert";
 
 interface SharedArticle {
   title: string;
@@ -82,11 +83,7 @@ export function SharedPage() {
                 autoFocus
               />
             </label>
-            {passError && (
-              <p className="error" role="alert">
-                {passError}
-              </p>
-            )}
+            <ErrorAlert message={passError} />
             <button type="submit" disabled={busy || passcode.length !== 6}>
               開く
             </button>

@@ -1,9 +1,11 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../App";
-import { api, errorMessage, type User } from "../api";
+import { api, errorMessage, roleLabel, type User } from "../api";
 import { Avatar } from "../Avatar";
 import { AvatarCropper } from "../AvatarCropper";
+import { PASSWORD_MIN } from "../../shared/accounts";
+import { ErrorAlert } from "../ErrorAlert";
 
 function ProfileSection() {
   const { user, setUser } = useAuth();
@@ -97,11 +99,7 @@ function ProfileSection() {
           {message}
         </p>
       )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      <ErrorAlert message={error} />
     </section>
   );
 }
@@ -135,15 +133,11 @@ function PasswordSection() {
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
         </label>
         <label>
-          新しいパスワード（12文字以上）
-          <input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(e) => setNext(e.target.value)} required />
+          新しいパスワード（{PASSWORD_MIN}文字以上）
+          <input type="password" autoComplete="new-password" minLength={PASSWORD_MIN} value={newPassword} onChange={(e) => setNext(e.target.value)} required />
         </label>
         {message && <p className="notice">{message}</p>}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" className="secondary">
           パスワードを変更
         </button>
@@ -198,11 +192,7 @@ function EmailSection() {
             {message}
           </p>
         )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" className="secondary" disabled={busy}>
           {busy ? "送信中…" : "確認メールを送る"}
         </button>
@@ -245,11 +235,7 @@ function WithdrawSection() {
           現在のパスワード
           <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
         </label>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
+        <ErrorAlert message={error} />
         <button type="submit" className="danger" disabled={busy}>
           {busy ? "処理中…" : "退会する"}
         </button>
@@ -264,7 +250,7 @@ export function AccountPage() {
     <div className="narrow">
       <h1>アカウント</h1>
       <p className="muted">
-        {user?.email}（{user?.role === "admin" ? "管理者" : "メンバー"}）
+        {user?.email}（{user && roleLabel(user.role)}）
       </p>
       <ProfileSection />
       <EmailSection />
