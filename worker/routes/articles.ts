@@ -1,4 +1,5 @@
 import { type Context, Hono } from "hono";
+import { searchExcerpt } from "../../shared/searchExcerpt";
 import type { AppEnv } from "../env";
 import { randomPasscode, randomToken } from "../crypto";
 import { fail, int, isUniqueViolation, origin, readJson, str } from "../http";
@@ -183,9 +184,14 @@ articles.get("/", async (c) => {
   const tags = normalizeTags(c.req.queries("tag") ?? []);
   const page = Math.max(1, Math.min(1000, Number(c.req.query("page")) || 1));
   // ピン留めした記事を先頭に出すのは、探しものをしていないときだけ（検索・タグの結果は更新の新しい順のまま）
-  const pinsFirst = q === "" && tags.length === 0;
+  const favoritesOnly = c.req.query("favorite") === "1";
+  const pinsFirst = q === "" && tags.length === 0 && !favoritesOnly;
   const where = ["a.deleted_at IS NULL"];
   const params: unknown[] = [];
+  if (favoritesOnly) {
+    where.push("EXISTS (SELECT 1 FROM article_favorites f WHERE f.article_id = a.id AND f.user_id = ?)");
+    params.push(c.var.user.id);
+  }
   for (const term of q.split(/\s+/).filter(Boolean).slice(0, 10)) {
     where.push("(a.title LIKE ? ESCAPE '\\' OR a.body LIKE ? ESCAPE '\\')");
     const like = `%${escapeLike(term)}%`;
@@ -200,17 +206,24 @@ articles.get("/", async (c) => {
     params.push(...tags, tags.length);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.cover_id AS cover, a.cover_video, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+    `SELECT a.id, a.title, ${q ? "a.body" : "substr(a.body, 1, 160)"} AS excerpt, a.cover_id AS cover, a.cover_video, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+            EXISTS (SELECT 1 FROM article_favorites f WHERE f.article_id = a.id AND f.user_id = ?) AS favorite,
             a.pinned_at IS NOT NULL AS pinned,
             ${TAGS_JSON} AS tags
        FROM articles a JOIN users uu ON uu.id = a.updated_by
       WHERE ${where.join(" AND ")}
       ORDER BY ${pinsFirst ? "a.pinned_at IS NULL, a.pinned_at DESC, " : ""}a.updated_at DESC LIMIT ? OFFSET ?`,
   )
-    .bind(...params, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE)
-    .all<{ id: string; tags: string; pinned: number }>();
+    .bind(c.var.user.id, ...params, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE)
+    .all<{ id: string; tags: string; pinned: number; favorite: number; excerpt: string }>();
   return c.json({
-    articles: results.slice(0, PAGE_SIZE).map((r) => ({ ...r, tags: JSON.parse(r.tags) as string[], pinned: r.pinned === 1 })),
+    articles: results.slice(0, PAGE_SIZE).map((r) => ({
+      ...r,
+      excerpt: q ? searchExcerpt(r.excerpt, q.split(/\s+/).filter(Boolean).slice(0, 10)) : r.excerpt,
+      tags: JSON.parse(r.tags) as string[],
+      pinned: r.pinned === 1,
+      favorite: r.favorite === 1,
+    })),
     hasMore: results.length > PAGE_SIZE,
     page,
   });
@@ -285,6 +298,7 @@ articles.get("/by-title/:title", async (c) => {
 articles.get("/:id", async (c) => {
   const article = await loadArticle(c.env.DB, c.req.param("id"));
   if (!article) fail(404, "記事が見つかりません");
+  const favorite = !!(await c.env.DB.prepare("SELECT 1 FROM article_favorites WHERE user_id = ? AND article_id = ?").bind(c.var.user.id, article.id).first());
   const [attachments, links, backlinks, related] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT f.id, f.filename, f.content_type, f.size, f.created_at, u.name AS uploaded_by_name, f.uploaded_by
@@ -320,6 +334,7 @@ articles.get("/:id", async (c) => {
     backlinks: backlinks!.results,
     related: related!.results,
     share: await findShare(c.env.DB, article.id, origin(c)),
+    favorite,
   });
 });
 
@@ -343,6 +358,24 @@ async function update(c: Context<AppEnv>, id: string, baseVersion: number, input
   }
   return c.json({ article: await loadArticle(c.env.DB, id) });
 }
+
+articles.post("/:id/favorite", async (c) => {
+  const id = c.req.param("id");
+  const result = await c.env.DB.prepare(
+    `INSERT INTO article_favorites (user_id, article_id, created_at)
+     SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NULL)
+     ON CONFLICT (user_id, article_id) DO UPDATE SET created_at = article_favorites.created_at`,
+  )
+    .bind(c.var.user.id, id, Date.now(), id)
+    .run();
+  if (!result.meta.changes) fail(404, "記事が見つかりません");
+  return c.json({ favorite: true });
+});
+
+articles.delete("/:id/favorite", async (c) => {
+  await c.env.DB.prepare("DELETE FROM article_favorites WHERE user_id = ? AND article_id = ?").bind(c.var.user.id, c.req.param("id")).run();
+  return c.json({ favorite: false });
+});
 
 articles.put("/:id", async (c) => {
   const body = await readJson(c);

@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { adminClient, createArticle, json, memberClient } from "./helpers";
 
 describe("記事", () => {
+  it("検索語が本文の後ろでも一致箇所の抜粋を返す", async () => {
+    const admin = await adminClient();
+    await createArticle(admin, { title: "監査", body: "前".repeat(500) + "検索目印" + "後".repeat(500) });
+    const { articles } = await json(await admin.get(`/api/articles?q=${encodeURIComponent("検索目印")}`));
+    expect(articles).toHaveLength(1);
+    expect(articles[0].excerpt).toContain("検索目印");
+    expect(articles[0].excerpt.length).toBeLessThanOrEqual(162);
+  });
   it("作成・取得・編集で版が進み、履歴が残る", async () => {
     const admin = await adminClient();
     const { client } = await memberClient(admin);

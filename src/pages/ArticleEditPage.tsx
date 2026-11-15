@@ -6,16 +6,19 @@ import { renderMarkdown } from "../markdown";
 import { applyMarkup, insertIntoTextarea, markupShortcut, type MarkupAction } from "../markup";
 import { MarkupToolbar } from "../MarkupToolbar";
 import { useCompletion } from "../useCompletion";
+import { TagInput } from "../TagInput";
+import { parseTagInput } from "../tagSuggestions";
+import { useAuth } from "../App";
+import { draftKey, type ArticleDraft } from "../articleDraft";
+import { useArticleDraft } from "../useArticleDraft";
 import { ACCEPT, attachmentMarkdown, namePastedFile, referencedIds, uploadAttachment } from "../upload";
 
 function parseTags(input: string) {
-  return input
-    .split(/[,、\s]+/)
-    .map((t) => t.replace(/^#/, "").trim())
-    .filter(Boolean);
+  return parseTagInput(input);
 }
 
 export function ArticleEditPage() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   // [[まだない記事]] から来たときは、そのタイトルを入れておく（未保存の変更として扱う）
@@ -23,6 +26,8 @@ export function ArticleEditPage() {
   const [title, setTitle] = useState(() => (id ? "" : (searchParams.get("title") ?? "")));
   const [body, setBody] = useState("");
   const [tags, setTags] = useState("");
+  const [tagQuery, setTagQuery] = useState("");
+  const [tagInputVersion, setTagInputVersion] = useState(0);
   const [baseVersion, setBaseVersion] = useState(0);
   const [original, setOriginal] = useState({ title: "", body: "", tags: "" });
   const [tab, setTab] = useState<"edit" | "preview">("edit");
@@ -55,7 +60,19 @@ export function ArticleEditPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const dirty = !savedId && (title !== original.title || body !== original.body || tags !== original.tags);
+  const currentTags = [tags, tagQuery].filter(Boolean).join(", ");
+  const dirty = !savedId && (title !== original.title || body !== original.body || currentTags !== original.tags);
+  const draft = useArticleDraft(draftKey(user!.id, id), { title, body, tags: currentTags, baseVersion, draftIds }, !loading && !savedId, dirty);
+  function restoreDraft(d: ArticleDraft) {
+    setTitle(d.title);
+    setBody(d.body);
+    setTags(d.tags);
+    setTagQuery("");
+    setTagInputVersion((v) => v + 1);
+    setDraftIds(d.draftIds);
+    setBaseVersion(d.baseVersion);
+    draft.resolve();
+  }
   const blocker = useBlocker(dirty);
   useEffect(() => {
     if (savedId) navigate(`/articles/${savedId}`);
@@ -79,11 +96,12 @@ export function ArticleEditPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
-    const payload = { title, body, tags: parseTags(tags) };
+    const payload = { title, body, tags: parseTags(currentTags) };
     try {
       const r = id
         ? await api.put<{ article: Article }>(`/articles/${id}`, { ...payload, baseVersion })
         : await api.post<{ article: Article }>("/articles", { ...payload, attachmentIds: referencedIds(body, draftIds) });
+      draft.clear();
       setSavedId(r.article.id);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409 && err.data.current) {
@@ -197,14 +215,31 @@ export function ArticleEditPage() {
   return (
     <form onSubmit={submit} className="editor">
       <h1>{id ? "記事を編集" : "新しい記事"}</h1>
+      {draft.pending && (
+        <div className="notice" role="region" aria-label="下書きの復元">
+          <p>このブラウザに書きかけの記事があります（{new Date(draft.pending.savedAt).toLocaleString("ja-JP")}）。復元しますか？</p>
+          {id && draft.pending.baseVersion !== baseVersion && <p>保存後に記事が更新されています。復元後の保存時に競合を確認します。</p>}
+          {draft.pending.draftIds.length > 0 && <p className="small">未保存の添付は1日で削除されるため、表示されなければ添付し直してください。</p>}
+          <div className="actions">
+            <button type="button" onClick={() => restoreDraft(draft.pending!)}>
+              下書きを復元
+            </button>
+            <button type="button" className="secondary" onClick={draft.discard}>
+              下書きを破棄
+            </button>
+          </div>
+        </div>
+      )}
+      {draft.error && (
+        <p className="error" role="status">
+          このブラウザに下書きを退避できません。画面を閉じる前に記事を保存してください。
+        </p>
+      )}
       <label>
         タイトル
         <input value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
       </label>
-      <label>
-        タグ（カンマ・空白区切り）
-        <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="例: ごはん, おでかけ, 手順" />
-      </label>
+      <TagInput key={`${id ?? "new"}:${tagInputVersion}`} value={tags} onChange={setTags} onPendingChange={setTagQuery} />
       <div className="editor-bar">
         <div className="tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === "edit"} className={tab === "edit" ? "active" : ""} onClick={() => setTab("edit")}>
@@ -290,7 +325,7 @@ export function ArticleEditPage() {
       {!conflict && <ErrorAlert message={error} />}
       <div className="actions editor-savebar">
         <span className="save-state" role="status">
-          {saving ? "保存中…" : dirty ? "未保存の変更" : "変更はありません"}
+          {saving ? "保存中…" : dirty ? (draft.savedAt && !draft.error ? "下書きを端末に退避済み" : "未保存の変更") : "変更はありません"}
         </span>
         <button type="submit" disabled={saving || uploading > 0 || Boolean(conflict)}>
           {saving ? "保存中…" : "保存"}
