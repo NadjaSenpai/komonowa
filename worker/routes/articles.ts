@@ -10,6 +10,8 @@ articles.use("*", requireAuth);
 
 const MAX_TAGS = 20;
 const PAGE_SIZE = 30;
+/** 記事の画面に出す「関連ページ」（2ホップ）の上限 */
+const MAX_RELATED = 50;
 
 export function normalizeTags(value: unknown): string[] {
   if (value === undefined) return [];
@@ -147,6 +149,8 @@ interface ArticleRow {
   updated_by: string;
   updated_by_name: string;
   updated_by_avatar: string | null;
+  /** ピン留めした時刻。していなければ null */
+  pinned_at: number | null;
 }
 
 async function loadArticle(db: D1Database, id: string) {
@@ -154,7 +158,7 @@ async function loadArticle(db: D1Database, id: string) {
     .prepare(
       `SELECT a.id, a.title, a.body, a.version, a.created_at, a.updated_at,
               a.created_by, cu.name AS created_by_name, cu.avatar_id AS created_by_avatar,
-              a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar, ${TAGS_JSON} AS tags
+              a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar, a.pinned_at, ${TAGS_JSON} AS tags
          FROM articles a JOIN users cu ON cu.id = a.created_by JOIN users uu ON uu.id = a.updated_by
         WHERE a.id = ? AND a.deleted_at IS NULL`,
     )
@@ -169,6 +173,8 @@ articles.get("/", async (c) => {
   const q = (c.req.query("q") ?? "").trim().slice(0, 200);
   const tags = normalizeTags(c.req.queries("tag") ?? []);
   const page = Math.max(1, Math.min(1000, Number(c.req.query("page")) || 1));
+  // ピン留めした記事を先頭に出すのは、探しものをしていないときだけ（検索・タグの結果は更新の新しい順のまま）
+  const pinsFirst = q === "" && tags.length === 0;
   const where = ["a.deleted_at IS NULL"];
   const params: unknown[] = [];
   for (const term of q.split(/\s+/).filter(Boolean).slice(0, 10)) {
@@ -186,18 +192,36 @@ articles.get("/", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT a.id, a.title, substr(a.body, 1, 160) AS excerpt, a.cover_id AS cover, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+            a.pinned_at IS NOT NULL AS pinned,
             ${TAGS_JSON} AS tags
        FROM articles a JOIN users uu ON uu.id = a.updated_by
       WHERE ${where.join(" AND ")}
-      ORDER BY a.updated_at DESC LIMIT ? OFFSET ?`,
+      ORDER BY ${pinsFirst ? "a.pinned_at IS NULL, a.pinned_at DESC, " : ""}a.updated_at DESC LIMIT ? OFFSET ?`,
   )
     .bind(...params, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE)
-    .all<{ id: string; tags: string }>();
+    .all<{ id: string; tags: string; pinned: number }>();
   return c.json({
-    articles: results.slice(0, PAGE_SIZE).map((r) => ({ ...r, tags: JSON.parse(r.tags) as string[] })),
+    articles: results.slice(0, PAGE_SIZE).map((r) => ({ ...r, tags: JSON.parse(r.tags) as string[], pinned: r.pinned === 1 })),
     hasMore: results.length > PAGE_SIZE,
     page,
   });
+});
+
+const MAX_TITLE_SUGGESTIONS = 8;
+
+/**
+ * 編集画面で [[ と打ったときの候補。タイトルに q を含む記事を、更新の新しい順に返す（q が空なら最近の記事）。
+ * 重複の判定と同じキーで比べるので、全角半角・大文字小文字の違いは気にしなくてよい
+ */
+articles.get("/titles", async (c) => {
+  const key = titleKey((c.req.query("q") ?? "").slice(0, 200));
+  const { results } = await c.env.DB.prepare(
+    `SELECT title FROM articles WHERE deleted_at IS NULL AND title_key LIKE ? ESCAPE '\\'
+      ORDER BY updated_at DESC LIMIT ?`,
+  )
+    .bind(`%${escapeLike(key)}%`, MAX_TITLE_SUGGESTIONS)
+    .all<{ title: string }>();
+  return c.json({ titles: results.map((r) => r.title) });
 });
 
 articles.get("/tags", async (c) => {
@@ -252,7 +276,7 @@ articles.get("/by-title/:title", async (c) => {
 articles.get("/:id", async (c) => {
   const article = await loadArticle(c.env.DB, c.req.param("id"));
   if (!article) fail(404, "記事が見つかりません");
-  const [attachments, links, backlinks] = await c.env.DB.batch([
+  const [attachments, links, backlinks, related] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT f.id, f.filename, f.content_type, f.size, f.created_at, u.name AS uploaded_by_name, f.uploaded_by
          FROM attachments f JOIN users u ON u.id = f.uploaded_by WHERE f.article_id = ? ORDER BY f.created_at`,
@@ -269,12 +293,23 @@ articles.get("/:id", async (c) => {
         WHERE l.target_key = (SELECT title_key FROM articles WHERE id = ?) AND a.deleted_at IS NULL AND a.id <> ?
         ORDER BY a.updated_at DESC, a.rowid DESC`,
     ).bind(article.id, article.id),
+    // 2ホップ：この記事と同じリンク先を持つ記事。via は共通のリンク先（記事があればそのタイトル、まだなければリンクのキー）
+    c.env.DB.prepare(
+      `SELECT a.id, a.title, a.updated_at, COALESCE(t.title, l1.target_key) AS via
+         FROM article_links l1
+         JOIN article_links l2 ON l2.target_key = l1.target_key AND l2.source_id <> l1.source_id
+         JOIN articles a ON a.id = l2.source_id AND a.deleted_at IS NULL
+         LEFT JOIN articles t ON t.title_key = l1.target_key AND t.deleted_at IS NULL
+        WHERE l1.source_id = ?
+        ORDER BY via, a.updated_at DESC, a.rowid DESC LIMIT ?`,
+    ).bind(article.id, MAX_RELATED),
   ]);
   return c.json({
     article,
     attachments: attachments!.results,
     links: links!.results,
     backlinks: backlinks!.results,
+    related: related!.results,
     share: await findShare(c.env.DB, article.id, origin(c)),
   });
 });
@@ -310,7 +345,12 @@ articles.delete("/:id", async (c) => {
   const id = c.req.param("id");
   // ごみ箱に入れたら共有も止める（戻したときに、忘れていた共有が勝手に再開しないように）
   const [res] = await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ? WHERE id = ? AND deleted_at IS NULL").bind(Date.now(), c.var.user.id, id),
+    // ピン留めも外す（戻したときに、忘れていたピン留めが一覧の先頭に戻らないように）
+    c.env.DB.prepare("UPDATE articles SET deleted_at = ?, deleted_by = ?, pinned_at = NULL WHERE id = ? AND deleted_at IS NULL").bind(
+      Date.now(),
+      c.var.user.id,
+      id,
+    ),
     c.env.DB.prepare("DELETE FROM article_shares WHERE article_id = ? AND EXISTS (SELECT 1 FROM articles WHERE id = ? AND deleted_at IS NOT NULL)").bind(
       id,
       id,
@@ -330,6 +370,22 @@ async function findShare(db: D1Database, articleId: string, origin: string) {
     .first<{ token: string; passcode: string | null; created_at: number; created_by_name: string }>();
   return row ? { url: `${origin}/s/${row.token}`, passcode: row.passcode, created_at: row.created_at, created_by_name: row.created_by_name } : null;
 }
+
+/** ピン留めする。メンバーなら誰でも、どの記事でも。版や更新日時は変えない。すでにピン留め中なら、付けた時刻はそのまま */
+articles.post("/:id/pin", async (c) => {
+  const res = await c.env.DB.prepare("UPDATE articles SET pinned_at = COALESCE(pinned_at, ?) WHERE id = ? AND deleted_at IS NULL")
+    .bind(Date.now(), c.req.param("id"))
+    .run();
+  if (res.meta.changes === 0) fail(404, "記事が見つかりません");
+  return c.json({ pinned: true });
+});
+
+/** ピン留めを外す */
+articles.delete("/:id/pin", async (c) => {
+  const res = await c.env.DB.prepare("UPDATE articles SET pinned_at = NULL WHERE id = ? AND deleted_at IS NULL").bind(c.req.param("id")).run();
+  if (res.meta.changes === 0) fail(404, "記事が見つかりません");
+  return c.json({ pinned: false });
+});
 
 /** 共有を始める。メンバーなら誰でも、どの記事でも。すでに共有中ならその共有を返す */
 articles.post("/:id/share", async (c) => {

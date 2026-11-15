@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAuth } from "../App";
-import { api, errorMessage, formatDate, formatSize, type Article, type Attachment, type Backlink, type WikiLink } from "../api";
+import { api, errorMessage, formatDate, formatSize, type Article, type Attachment, type Backlink, type Related, type WikiLink } from "../api";
+import { loadMembers, type Member } from "../members";
+import { decorateMentions, hasMentions } from "../mentions";
 import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 import { SharePanel, type Share } from "../SharePanel";
 import { ACCEPT, uploadAttachment } from "../upload";
 import { anyTaskChecked, clearTaskChecks, prepareTaskBoxes, toggleTaskBox } from "../taskChecks";
-import { buildToc, type TocItem } from "../toc";
+import { buildToc } from "../toc";
 import { useInternalLinks } from "../useInternalLinks";
 import { titleKey } from "../../shared/wikilinks";
 import { ErrorAlert } from "../ErrorAlert";
@@ -31,6 +33,9 @@ export function ArticleViewPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [links, setLinks] = useState<WikiLink[]>([]);
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
+  const [related, setRelated] = useState<Related[]>([]);
+  // 本文に人へのリンクがあるときだけ読み込む（アイコンを付けるため）
+  const [members, setMembers] = useState<Member[]>([]);
   const [share, setShare] = useState<Share | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: 記事が変わったら閉じる（id は合図として使う）
@@ -44,22 +49,37 @@ export function ArticleViewPage() {
   const load = useCallback(() => {
     setError("");
     api
-      .get<{ article: Article; attachments: Attachment[]; links: WikiLink[]; backlinks: Backlink[]; share: Share | null }>(`/articles/${id}`)
+      .get<{ article: Article; attachments: Attachment[]; links: WikiLink[]; backlinks: Backlink[]; related: Related[]; share: Share | null }>(
+        `/articles/${id}`,
+      )
       .then((r) => {
         setArticle(r.article);
         setAttachments(r.attachments);
         setLinks(r.links);
         setBacklinks(r.backlinks);
+        setRelated(r.related);
         setShare(r.share);
       })
       .catch((err) => setError(errorMessage(err)));
   }, [id]);
 
   useEffect(load, [load]);
-  const { html, toc } = useMemo(
-    () => (article ? buildToc(markMissingLinks(renderMarkdown(article.body), links)) : { html: "", toc: [] as TocItem[] }),
-    [article, links],
-  );
+  const rendered = useMemo(() => (article ? markMissingLinks(renderMarkdown(article.body), links) : ""), [article, links]);
+  const mentioned = hasMentions(rendered);
+  useEffect(() => {
+    if (!mentioned) return;
+    // 読み込めなくても、アイコンが付かないだけで本文は読める
+    loadMembers()
+      .then(setMembers)
+      .catch(() => undefined);
+  }, [mentioned]);
+  const { html, toc } = useMemo(() => buildToc(decorateMentions(rendered, members)), [rendered, members]);
+  // 関連ページ（2ホップ）を、共通のリンク先ごとにまとめる
+  const relatedGroups = useMemo(() => {
+    const groups = new Map<string, Related[]>();
+    for (const r of related) groups.set(r.via, [...(groups.get(r.via) ?? []), r]);
+    return [...groups];
+  }, [related]);
   // 見出しが2つ以上あるときだけ目次を出す
   const tocLinks =
     toc.length >= 2 ? (
@@ -126,6 +146,17 @@ export function ArticleViewPage() {
     }
   }
 
+  /** ピン留めの付け外し。一覧の先頭に出るかどうかだけが変わり、版は進まない */
+  async function togglePin() {
+    const pinned = article!.pinned_at !== null;
+    try {
+      await (pinned ? api.del(`/articles/${id}/pin`) : api.post(`/articles/${id}/pin`));
+      setArticle({ ...article!, pinned_at: pinned ? null : Date.now() });
+    } catch (err) {
+      alert(errorMessage(err));
+    }
+  }
+
   async function upload(files: FileList | null) {
     if (!files?.length) return;
     setUploadError("");
@@ -166,6 +197,15 @@ export function ArticleViewPage() {
               <Link className="button secondary" to={`/articles/${id}/history`}>
                 履歴
               </Link>
+              <button
+                type="button"
+                className="secondary"
+                aria-pressed={article.pinned_at !== null}
+                title="記事の一覧の先頭に出します。誰でも付け外しできます"
+                onClick={togglePin}
+              >
+                {article.pinned_at !== null ? "ピン留めを外す" : "ピン留め"}
+              </button>
               <button type="button" className="secondary" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
                 共有
               </button>
@@ -176,6 +216,11 @@ export function ArticleViewPage() {
           </div>
           {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
           <p className="meta">
+            {article.pinned_at !== null && (
+              <span className="shared-badge" title="記事の一覧の先頭に出ます">
+                ピン留め
+              </span>
+            )}
             {share && (
               <span className="shared-badge" title="URL を知っている人はログインなしで読めます">
                 共有中
@@ -245,6 +290,26 @@ export function ArticleViewPage() {
                   </li>
                 ))}
               </ul>
+            </section>
+          )}
+
+          {relatedGroups.length > 0 && (
+            <section className="backlinks related">
+              <h2>関連ページ</h2>
+              {relatedGroups.map(([via, pages]) => (
+                <div key={via} className="related-group">
+                  <h3>「{via}」にリンクしているページ</h3>
+                  <ul className="article-list">
+                    {pages.map((p) => (
+                      <li key={p.id}>
+                        <Link to={`/articles/${p.id}`} className="title">
+                          {p.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </section>
           )}
 

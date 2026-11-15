@@ -5,6 +5,7 @@ import { ErrorAlert } from "../ErrorAlert";
 import { renderMarkdown } from "../markdown";
 import { applyMarkup, insertIntoTextarea, markupShortcut, type MarkupAction } from "../markup";
 import { MarkupToolbar } from "../MarkupToolbar";
+import { useCompletion } from "../useCompletion";
 import { ACCEPT, attachmentMarkdown, namePastedFile, referencedIds, uploadAttachment } from "../upload";
 
 function parseTags(input: string) {
@@ -37,6 +38,7 @@ export function ArticleEditPage() {
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const completion = useCompletion(textarea, setBody);
 
   useEffect(() => {
     if (!id) return;
@@ -141,6 +143,8 @@ export function ArticleEditPage() {
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // 候補（[[ と @）が出ている間の ↑↓・Enter・Tab・Esc は、候補の操作
+    if (completion.onKeyDown(e)) return;
     const action = markupShortcut(e);
     if (!action) return;
     e.preventDefault();
@@ -233,20 +237,31 @@ export function ArticleEditPage() {
         </a>
       </div>
       {tab === "edit" ? (
-        <textarea
-          ref={textarea}
-          className={dragOver ? "drop-target" : undefined}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onPaste={onPaste}
-          onKeyDown={onKeyDown}
-          onDragOver={onDragOver}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-          rows={24}
-          aria-label="本文"
-          spellCheck={false}
-        />
+        // 候補はカーソルの下に出すので、本文欄を基準に置けるよう包む
+        <div className="editor-body">
+          <textarea
+            ref={textarea}
+            className={dragOver ? "drop-target" : undefined}
+            value={body}
+            onChange={(e) => {
+              setBody(e.target.value);
+              completion.update();
+            }}
+            // カーソルを動かしたときも、その場所に合わせて候補を出し直す
+            onSelect={completion.update}
+            onBlur={completion.close}
+            onPaste={onPaste}
+            onKeyDown={onKeyDown}
+            onDragOver={onDragOver}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            rows={24}
+            aria-label="本文"
+            spellCheck={false}
+            {...completion.aria}
+          />
+          {completion.popup}
+        </div>
       ) : (
         <div className="markdown preview" dangerouslySetInnerHTML={{ __html: preview || "<p class='muted'>（本文なし）</p>" }} />
       )}

@@ -1,9 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api, errorMessage, formatDate, type Tag } from "../api";
 import { Byline } from "../Avatar";
 import { markdownToText } from "../markdown";
+import { PinIcon } from "../PinIcon";
 import { WelcomeNotice } from "../WelcomeNotice";
+import { tagHue } from "../tagColor";
+import { tagWeight } from "../tagWeight";
 
 interface ListItem {
   id: string;
@@ -16,6 +19,8 @@ interface ListItem {
   tags: string[];
   /** 本文の最初の画像（添付 ID） */
   cover: string | null;
+  /** ピン留め中（絞り込んでいないときは一覧の先頭に並ぶ） */
+  pinned: boolean;
 }
 
 export function ArticleListPage() {
@@ -50,6 +55,19 @@ export function ArticleListPage() {
       .catch(() => undefined);
   }, []);
 
+  /** 一覧からピン留めを付け外しする。並びが変わるので、読み込み中の表示は出さずに一覧を取り直す */
+  async function togglePin(a: ListItem) {
+    setError("");
+    try {
+      await (a.pinned ? api.del(`/articles/${a.id}/pin`) : api.post(`/articles/${a.id}/pin`));
+      const r = await api.get<{ articles: ListItem[]; hasMore: boolean }>(`/articles?${params.toString()}`);
+      setItems(r.articles);
+      setHasMore(r.hasMore);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   function update(next: { q?: string; tags?: string[]; page?: number }) {
     const p = new URLSearchParams();
     const nq = next.q ?? q;
@@ -58,6 +76,11 @@ export function ArticleListPage() {
     if (next.page && next.page > 1) p.set("page", String(next.page));
     setParams(p);
   }
+
+  // タグの大きさは、付いている記事の数で決める（いちばん少ないタグといちばん多いタグの間で）
+  const counts = tags.map((t) => t.count);
+  const minCount = Math.min(...counts);
+  const maxCount = Math.max(...counts);
 
   function toggleTag(name: string) {
     update({ tags: selected.includes(name) ? selected.filter((t) => t !== name) : [...selected, name] });
@@ -114,6 +137,8 @@ export function ArticleListPage() {
                 key={t.id}
                 type="button"
                 className={selected.includes(t.name) ? "tag active" : "tag"}
+                // よく使われているタグほど大きく濃くする（--w は 0〜1）
+                style={{ "--w": tagWeight(t.count, minCount, maxCount).toFixed(2), "--tag-hue": tagHue(t.name) } as CSSProperties}
                 aria-pressed={selected.includes(t.name)}
                 aria-label={`${t.name}（${t.count}件）`}
                 onClick={() => toggleTag(t.name)}
@@ -146,9 +171,14 @@ export function ArticleListPage() {
               記事がありません。<Link to="/articles/new">新しく作成</Link>しましょう。
             </p>
           ))}
-        <ul className="article-list">
+        <ul className="article-list tinted">
           {items?.map((a) => (
-            <li key={a.id} className={a.cover ? "has-cover" : undefined}>
+            <li
+              key={a.id}
+              className={a.cover ? "has-cover" : undefined}
+              // 行の左の色の線。最初のタグの色にする（タグがなければ CSS の既定の灰色）
+              style={a.tags[0] ? ({ "--tag-hue": tagHue(a.tags[0]) } as CSSProperties) : undefined}
+            >
               {a.cover && (
                 <Link to={`/articles/${a.id}`} className="cover" tabIndex={-1} aria-hidden="true">
                   <img src={`/api/attachments/${a.cover}/thumb`} alt="" loading="lazy" decoding="async" />
@@ -172,6 +202,16 @@ export function ArticleListPage() {
                   ))}
                 </div>
                 <p className="meta article-update">
+                  <button
+                    type="button"
+                    className={a.pinned ? "pin-toggle pinned" : "pin-toggle"}
+                    aria-pressed={a.pinned}
+                    aria-label={a.pinned ? `「${a.title}」のピン留めを外す` : `「${a.title}」をピン留めする`}
+                    title={a.pinned ? "ピン留めを外す" : "ピン留めする（一覧の先頭に出します）"}
+                    onClick={() => togglePin(a)}
+                  >
+                    <PinIcon filled={a.pinned} />
+                  </button>
                   <Byline userId={a.updated_by} name={a.updated_by_name} avatarId={a.updated_by_avatar} />
                   <span className="meta-item">{formatDate(a.updated_at)}</span>
                 </p>
