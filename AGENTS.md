@@ -10,7 +10,7 @@ A private team wiki on Cloudflare Workers. See `README.md` for features and desi
 - `migrations/`: D1 schema as numbered SQL files. Never edit an applied migration; add a new one.
 - `test/`: API tests that run inside the Workers runtime. UI logic tests live in `src/__tests__/`.
 - `scripts/`: D1/R2 backup and restore (`docs/operations.md`).
-- `docs/superpowers/`: spec and plan. `wiki-mock/` is an old static mock; it is git-ignored and not part of the app.
+- `docs/superpowers/specs/`: design specs, referenced from code and migrations. Plans (`docs/superpowers/plans/`), session notes, local security reports, and screenshots under `docs/` are git-ignored and stay local. `wiki-mock/` is an old static mock; it is git-ignored and not part of the app.
 
 ## Build, Test, and Development
 

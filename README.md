@@ -125,7 +125,7 @@ test/              API テスト（@cloudflare/vitest-plugin）
 scripts/           バックアップ・復元スクリプト
 public/_headers    静的ファイルのセキュリティヘッダー
 .github/workflows/ CI（npm run check）と本番への自動デプロイ
-docs/              仕様・計画・運用手順
+docs/              仕様・運用手順
 ```
 
 ## ライセンス
