@@ -37,6 +37,23 @@ export function youtubeVideo(url: string): Video | null {
   return { id, start: seconds(u.searchParams.get("t") ?? u.searchParams.get("start")) };
 }
 
+function thumbnailUrl(id: string, size: "maxresdefault" | "hqdefault"): string {
+  return `https://i.ytimg.com/vi/${id}/${size}.jpg`;
+}
+
+/**
+ * 大きいサムネイルが無い動画では、YouTube は 404 と一緒に 120×90 の灰色の画像を返す（読み込み自体は成功する）。
+ * そのときは、どの動画にもある小さい版（480×360）に替える。替えたら true
+ */
+export function fallbackThumbnail(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLImageElement) || !target.closest(".video-play")) return false;
+  const id = target.closest<HTMLElement>(".video-embed")?.dataset.youtube;
+  if (!id || !YOUTUBE_ID.test(id) || target.src !== thumbnailUrl(id, "maxresdefault")) return false;
+  if (target.naturalWidth > 120) return false;
+  target.src = thumbnailUrl(id, "hqdefault");
+  return true;
+}
+
 /**
  * 描画した本文のうち、YouTube の URL だけの段落を、サムネイルと再生ボタンの枠に置き換える。
  * この時点で読むのはサムネイル画像だけ。プレーヤー（iframe）は再生ボタンを押したときに playVideo が入れる。
@@ -64,7 +81,8 @@ export function embedVideos(html: string): string {
     play.className = "video-play";
     play.setAttribute("aria-label", "YouTube の動画を再生");
     const thumb = doc.createElement("img");
-    thumb.src = `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
+    // まず大きい版（1280×720）。古い動画などで無いときは、読み込んだあと fallbackThumbnail が小さい版に替える
+    thumb.src = thumbnailUrl(video.id, "maxresdefault");
     thumb.alt = "";
     thumb.setAttribute("loading", "lazy");
     thumb.setAttribute("decoding", "async");
@@ -104,4 +122,7 @@ export function watchVideoEmbeds(root: Document = document): void {
   root.addEventListener("click", (e) => {
     if (playVideo(e.target)) e.preventDefault();
   });
+  // load と error は親に伝わらないので、キャプチャで受ける
+  root.addEventListener("load", (e) => fallbackThumbnail(e.target), true);
+  root.addEventListener("error", (e) => fallbackThumbnail(e.target), true);
 }

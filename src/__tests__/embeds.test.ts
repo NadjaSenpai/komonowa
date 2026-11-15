@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { playVideo, youtubeVideo } from "../embeds";
+import { fallbackThumbnail, playVideo, youtubeVideo } from "../embeds";
 import { markdownToText, renderMarkdown } from "../markdown";
 
 const ID = "jNQXAC9IVRw";
@@ -58,7 +58,7 @@ describe("動画の枠", () => {
     expect(box.dataset.youtube).toBe(ID);
     expect(box.dataset.start).toBe("90");
     expect(box.querySelector("button.video-play")?.getAttribute("aria-label")).toBe("YouTube の動画を再生");
-    expect(box.querySelector("img")?.getAttribute("src")).toBe(`https://i.ytimg.com/vi/${ID}/hqdefault.jpg`);
+    expect(box.querySelector("img")?.getAttribute("src")).toBe(`https://i.ytimg.com/vi/${ID}/maxresdefault.jpg`);
     // 再生できないときのために、YouTube へのリンクも残す
     const link = box.querySelector("a")!;
     expect(link.getAttribute("href")).toBe(`https://youtu.be/${ID}?t=90`);
@@ -102,6 +102,24 @@ describe("動画の枠", () => {
     expect(frame.title).toBe("YouTube の動画");
     expect(root.querySelector(".video-play")).toBeNull();
     expect(root.querySelector(".video-embed a")).not.toBeNull();
+  });
+
+  it("大きいサムネイルが無い動画では、小さい版に替える", () => {
+    const root = render(`https://youtu.be/${ID}\n\n![図](https://example.com/a.png)`);
+    const thumb = root.querySelector<HTMLImageElement>(".video-play img")!;
+    const width = (value: number) => Object.defineProperty(thumb, "naturalWidth", { value, configurable: true });
+    // 大きい版が読めたときはそのまま
+    width(1280);
+    expect(fallbackThumbnail(thumb)).toBe(false);
+    // 無いときは 120×90 の灰色の画像が返る
+    width(120);
+    expect(fallbackThumbnail(thumb)).toBe(true);
+    expect(thumb.getAttribute("src")).toBe(`https://i.ytimg.com/vi/${ID}/hqdefault.jpg`);
+    // 小さい版も読めなくても、繰り返さない
+    width(0);
+    expect(fallbackThumbnail(thumb)).toBe(false);
+    // 本文のほかの画像には触らない
+    expect(fallbackThumbnail(root.querySelector("p img"))).toBe(false);
   });
 
   it("枠の外を押しても何もしない", () => {
