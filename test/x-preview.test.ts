@@ -28,7 +28,7 @@ describe("Xの投稿プレビュー", () => {
     const endpoint = new URL(String(request));
     expect(endpoint.origin + endpoint.pathname).toBe("https://publish.x.com/oembed");
     expect(Object.fromEntries(endpoint.searchParams)).toEqual({ url: post, omit_script: "1", hide_thread: "1" });
-    expect(options?.redirect).toBe("error");
+    expect(options?.redirect).toBe("manual");
   });
 
   it("投稿以外のURLを拒否し、Xで取得できない場合はエラーを返す", async () => {
@@ -39,5 +39,12 @@ describe("Xの投稿プレビュー", () => {
     }
     expect(fetchPost).not.toHaveBeenCalled();
     expect((await admin.get(preview(post))).status).toBe(502);
+  });
+
+  it("oEmbedから転送を指示された場合はプレビューを返さない", async () => {
+    const admin = await adminClient();
+    const fetchPost = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.redirect("https://example.com/"));
+    expect((await admin.get(preview(post))).status).toBe(502);
+    expect(fetchPost).toHaveBeenCalledTimes(1);
   });
 });

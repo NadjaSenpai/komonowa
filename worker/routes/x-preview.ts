@@ -38,7 +38,8 @@ xPreview.get("/", requireAuth, async (c) => {
   const endpoint = new URL("https://publish.x.com/oembed");
   endpoint.search = new URLSearchParams({ url, omit_script: "1", hide_thread: "1" }).toString();
   try {
-    const response = await fetch(endpoint, { redirect: "error", signal: AbortSignal.timeout(4000) });
+    // Workers は redirect: "error" を受け付けない。転送レスポンスは readOEmbed で拒否する。
+    const response = await fetch(endpoint, { redirect: "manual", signal: AbortSignal.timeout(4000) });
     const data = await readOEmbed(response);
     if (data && typeof data === "object" && "html" in data && typeof data.html === "string" && data.html) {
       return c.json({ html: data.html });
