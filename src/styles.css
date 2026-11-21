@@ -378,7 +378,7 @@ dialog.lightbox iframe { display: block; width: min(96vw, calc(86vh * 16 / 9)); 
 .markdown th { font-weight: 700; border-bottom-color: var(--color-ink-2); }
 .markdown blockquote { margin: 0 0 var(--space-md); padding: var(--space-sm) var(--space-md); background: var(--color-paper-3); border-radius: var(--radius-control); color: var(--color-ink-2); }
 .markdown blockquote > :last-child { margin-bottom: 0; }
-.markdown .x-post-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.markdown .x-post-text { font-size: var(--text-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* チェックリスト：箇条書きの点の代わりにチェックの印を出す */
 /* 項目の間に空行があると「ゆるいリスト」になり、印は <p> の中に入る。そのときも点を消し、段落の余白を詰める */
 .markdown li:has(> .task-box, > p:first-child > .task-box) { list-style: none; }
