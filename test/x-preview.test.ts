@@ -17,11 +17,13 @@ describe("Xの投稿プレビュー", () => {
   it("管理者とメンバーが、投稿URLから引用HTMLを取得できる", async () => {
     const admin = await adminClient();
     const { client: member } = await memberClient(admin);
-    const fetchPost = vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json({ html, author_name: "Interior" }));
+    const fetchPost = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => Response.json({ html, author_name: "U.S. Department of the Interior", author_url: "https://twitter.com/Interior" }));
     for (const client of [admin, member]) {
       const response = await client.get(preview(post.replace("x.com", "twitter.com") + "?s=20#post"));
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ html });
+      expect(await response.json()).toEqual({ html, authorName: "U.S. Department of the Interior", authorHandle: "Interior" });
     }
     expect(fetchPost).toHaveBeenCalledTimes(2);
     const [request, options] = fetchPost.mock.calls[0]!;

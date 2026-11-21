@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { xPostUrl } from "../../shared/x-posts";
+import { xPostUrl, type XPostPreview } from "../../shared/x-posts";
 import type { AppEnv } from "../env";
 import { fail } from "../http";
 import { requireAuth } from "../session";
@@ -42,7 +42,10 @@ xPreview.get("/", requireAuth, async (c) => {
     const response = await fetch(endpoint, { redirect: "manual", signal: AbortSignal.timeout(4000) });
     const data = await readOEmbed(response);
     if (data && typeof data === "object" && "html" in data && typeof data.html === "string" && data.html) {
-      return c.json({ html: data.html });
+      const authorName = "author_name" in data && typeof data.author_name === "string" ? data.author_name.trim() || null : null;
+      const profile = "author_url" in data && typeof data.author_url === "string" ? data.author_url : "";
+      const authorHandle = /^https:\/\/(?:www\.)?(?:x\.com|twitter\.com)\/([a-z0-9_]{1,15})\/?$/i.exec(profile)?.[1] ?? null;
+      return c.json({ html: data.html, authorName, authorHandle } satisfies XPostPreview);
     }
   } catch {
     // 取得できない場合は記事の元のリンクを残す。
