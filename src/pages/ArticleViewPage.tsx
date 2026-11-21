@@ -11,6 +11,7 @@ import { ACCEPT, uploadAttachment } from "../upload";
 import { anyTaskChecked, clearTaskChecks, prepareTaskBoxes, toggleTaskBox } from "../taskChecks";
 import { buildToc } from "../toc";
 import { useInternalLinks } from "../useInternalLinks";
+import { expandXPreviews } from "../xPreviews";
 import { titleKey } from "../../shared/wikilinks";
 import { ErrorAlert } from "../ErrorAlert";
 import { FavoriteButton } from "../FavoriteButton";
@@ -83,6 +84,8 @@ export function ArticleViewPage() {
       .catch(() => undefined);
   }, [mentioned]);
   const { html, toc } = useMemo(() => buildToc(decorateMentions(rendered, members)), [rendered, members]);
+  // 同じ記事の再レンダーで、描画後に追加した引用やチェックの状態を消さない。
+  const bodyHtml = useMemo(() => ({ __html: html }), [html]);
   // 関連ページ（2ホップ）を、共通のリンク先ごとにまとめる
   const relatedGroups = useMemo(() => {
     const groups = new Map<string, Related[]>();
@@ -112,6 +115,11 @@ export function ArticleViewPage() {
 
   // チェックリスト：描画し直すたびに、このブラウザに覚えている付け外しを当て直す
   const bodyRef = useRef<HTMLDivElement>(null);
+  const showBody = article?.id === id && !error;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 本文のHTMLが差し替わったら新しい段落を展開する
+  useEffect(() => {
+    if (showBody && bodyRef.current) return expandXPreviews(bodyRef.current);
+  }, [bodyHtml, showBody]);
   const [anyChecked, setAnyChecked] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: 本文を描画し直すたびに当て直す（html は合図として使う）
   useEffect(() => {
@@ -260,13 +268,7 @@ export function ArticleViewPage() {
             </details>
           )}
           {/* biome-ignore lint/a11y/noStaticElementInteractions: 描画した本文の中のリンクとチェックの操作を、包む要素でまとめて受ける */}
-          <div
-            ref={bodyRef}
-            className="markdown article-body"
-            onClick={onBodyClickWithTasks}
-            onKeyDown={onBodyKeyDown}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+          <div ref={bodyRef} className="markdown article-body" onClick={onBodyClickWithTasks} onKeyDown={onBodyKeyDown} dangerouslySetInnerHTML={bodyHtml} />
           {anyChecked && (
             <p className="task-actions">
               <button type="button" className="link small" onClick={clearChecks}>

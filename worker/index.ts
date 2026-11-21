@@ -12,6 +12,7 @@ import { auth } from "./routes/auth";
 import { share } from "./routes/share";
 import { avatars, profile } from "./routes/profile";
 import { users } from "./routes/users";
+import { xPreview } from "./routes/x-preview";
 
 const app = new Hono<AppEnv>().basePath("/api");
 
@@ -32,6 +33,7 @@ app.route("/users", users);
 app.route("/admin", admin);
 app.route("/articles", articles);
 app.route("/share", share);
+app.route("/x-preview", xPreview);
 app.route("/", attachments);
 
 app.notFound((c) => c.json({ error: "見つかりません" }, 404));
