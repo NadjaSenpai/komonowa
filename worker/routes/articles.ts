@@ -206,7 +206,7 @@ articles.get("/", async (c) => {
     params.push(...tags, tags.length);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT a.id, a.title, ${q ? "a.body" : "substr(a.body, 1, 160)"} AS excerpt, a.cover_id AS cover, a.cover_video, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
+    `SELECT a.id, a.title, ${q ? "a.body" : "substr(a.body, 1, 400)"} AS excerpt, a.cover_id AS cover, a.cover_video, a.updated_at, a.updated_by, uu.name AS updated_by_name, uu.avatar_id AS updated_by_avatar,
             EXISTS (SELECT 1 FROM article_favorites f WHERE f.article_id = a.id AND f.user_id = ?) AS favorite,
             a.pinned_at IS NOT NULL AS pinned,
             ${TAGS_JSON} AS tags

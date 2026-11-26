@@ -10,6 +10,13 @@ describe("記事", () => {
     expect(articles[0].excerpt).toContain("検索目印");
     expect(articles[0].excerpt.length).toBeLessThanOrEqual(162);
   });
+  it("一覧の抜粋は、冒頭が長い画像の記法でも本文まで届く", async () => {
+    const admin = await adminClient();
+    const image = `![${"写真".repeat(20)}](/api/attachments/${"a".repeat(32)})\n\n`;
+    await createArticle(admin, { title: "画像始まり", body: `${image.repeat(2)}本文の目印` });
+    const { articles } = await json(await admin.get("/api/articles"));
+    expect(articles[0].excerpt).toContain("本文の目印");
+  });
   it("作成・取得・編集で版が進み、履歴が残る", async () => {
     const admin = await adminClient();
     const { client } = await memberClient(admin);
