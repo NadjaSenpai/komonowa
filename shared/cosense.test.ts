@@ -69,6 +69,18 @@ describe("convertCosensePage", () => {
     expect(body("式 [$ x^2] です")).toBe("式 `x^2` です");
   });
 
+  it("HTML や Markdown として読まれる文字は文字のまま残す", () => {
+    expect(body("Map<string, number> と <div> を使う")).toBe("Map\\<string, number> と \\<div> を使う");
+    expect(body("# 見出しではない", "1. 番号ではない", "- 箇条書きではない")).toBe("\\# 見出しではない\n1\\. 番号ではない\n\\- 箇条書きではない");
+    expect(body("`<b>` はそのまま")).toBe("`<b>` はそのまま");
+  });
+
+  it("装飾の中のリンクも変換する", () => {
+    expect(body("[* [リンク]]")).toBe("**[[リンク]]**");
+    expect(body("[** [見出し]]")).toBe("### [[見出し]]");
+    expect(body("[/ a [b] c] と [d]")).toBe("*a [[b]] c* と [[d]]");
+  });
+
   it("本文の先頭と末尾の空行は除く", () => {
     expect(body("", "", "本文", "", " a", "")).toBe("本文\n\n- a");
   });

@@ -69,6 +69,21 @@ function parseUrl(token: string): URL | null {
   }
 }
 
+/** s[open] の [ に対応する ] の位置（入れ子を数える）。なければ -1 */
+function closeOf(s: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < s.length; i++) {
+    if (s[i] === "[") depth++;
+    else if (s[i] === "]" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** 行頭で見出し・番号付きリスト・箇条書きとして読まれる文字を逃がす */
+function escapeLineStart(text: string): string {
+  return text.replace(/^(#{1,6}|[-*+]) /, "\\$1 ").replace(/^(\d+)\. /, "$1\\. ");
+}
+
 class Converter {
   tags = new Map<string, string>();
   images = 0;
@@ -135,8 +150,14 @@ class Converter {
           continue;
         }
       }
+      if (ch === "<") {
+        // 文字の < を HTML のタグとして読ませない（Map<string> や <div> が消えないように）
+        out += "\\<";
+        i++;
+        continue;
+      }
       if (ch === "[") {
-        const end = s.indexOf("]", i + 1);
+        const end = closeOf(s, i);
         if (end > i) {
           out += this.bracket(s.slice(i + 1, end));
           i = end + 1;
@@ -166,9 +187,10 @@ class Converter {
     let converted: string;
     if (command) converted = `\`${command[1]}\``;
     else {
-      const heading = /^\[(\*{2,})\s+([^\]]*)\]$/.exec(rest);
+      // 行全体が 1 つの [** …]（中にリンクがあってもよい）なら見出し
+      const heading = closeOf(rest, 0) === rest.length - 1 ? /^\[(\*{2,})\s+(.*)\]$/.exec(rest) : null;
       const onlyTags = /^(#\[[^\]]+\]|#\S+)(\s+(#\[[^\]]+\]|#\S+))*$/.test(rest);
-      converted = heading ? `${heading[1]!.length === 2 ? "###" : "##"} ${this.inline(heading[2]!)}` : this.inline(rest);
+      converted = heading ? `${heading[1]!.length === 2 ? "###" : "##"} ${this.inline(heading[2]!)}` : escapeLineStart(this.inline(rest));
       if (onlyTags) return null;
       if (!converted.trim()) return null;
     }
