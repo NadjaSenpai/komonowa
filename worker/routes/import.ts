@@ -3,13 +3,14 @@
 import { Hono } from "hono";
 import { titleKey } from "../../shared/wikilinks";
 import type { AppEnv } from "../env";
-import { readJson } from "../http";
+import { fail, readJson } from "../http";
 import { fetchImportImage, isImportableImageUrl } from "../importImages";
 import { requireAuth } from "../session";
 import { assertTitleFree, createArticle, readArticleInput } from "./articles";
 import { mimeOf, purgeExpiredDrafts } from "./attachments";
 
 const MAX_IMAGES = 50;
+const MAX_CHECK = 5000;
 const MIN_DATE = Date.UTC(2000, 0, 1);
 const IMAGE = /!\[[^\]]*\]\((https:\/\/[^)\s]+)\)/g;
 
@@ -20,6 +21,23 @@ importRoutes.use("*", requireAuth);
 function readDate(value: unknown, now: number): number {
   return typeof value === "number" && Number.isFinite(value) && value >= MIN_DATE && value <= now ? Math.floor(value) : now;
 }
+
+/** 取り込む前の確認。ごみ箱にない記事と同じタイトル（titleKey が同じ）になるものを、入力の文字列のまま返す */
+importRoutes.post("/cosense/check", async (c) => {
+  const body = await readJson(c);
+  const titles = body.titles;
+  if (!Array.isArray(titles) || titles.length > MAX_CHECK || !titles.every((t) => typeof t === "string" && t.length <= 200)) {
+    fail(400, "タイトルの指定が正しくありません");
+  }
+  const keys = (titles as string[]).map(titleKey);
+  const { results } = await c.env.DB.prepare(
+    "SELECT DISTINCT a.title_key AS k FROM json_each(?) j JOIN articles a ON a.title_key = j.value AND a.deleted_at IS NULL",
+  )
+    .bind(JSON.stringify(keys))
+    .all<{ k: string }>();
+  const taken = new Set(results.map((r) => r.k));
+  return c.json({ taken: (titles as string[]).filter((_, i) => taken.has(keys[i]!)) });
+});
 
 importRoutes.post("/cosense/pages", async (c) => {
   const body = await readJson(c);

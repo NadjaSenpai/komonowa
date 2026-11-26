@@ -13,6 +13,30 @@ const page = (data: Record<string, unknown> = {}) => ({
 
 afterEach(() => vi.restoreAllMocks());
 
+describe("Cosense の取り込み（同名チェック）", () => {
+  it("ログインしていなければ 401", async () => {
+    expect((await new Client().post("/api/import/cosense/check", { titles: ["a"] })).status).toBe(401);
+  });
+
+  it("ごみ箱にない記事と titleKey が同じタイトルを返す", async () => {
+    const admin = await adminClient();
+    const { client: member } = await memberClient(admin);
+    await createArticle(admin, { title: "手順書" });
+    await createArticle(admin, { title: "Memo" });
+    const trashed = await createArticle(admin, { title: "消した記事" });
+    expect((await admin.del(`/api/articles/${trashed.id}`)).status).toBe(200);
+    const res = await member.post("/api/import/cosense/check", { titles: ["手順書", "テジュンショ", "ＭＥＭＯ", "消した記事", "新規"] });
+    expect(res.status).toBe(200);
+    expect(await json(res)).toEqual({ taken: ["手順書", "ＭＥＭＯ"] });
+  });
+
+  it("5,001 件以上は 400", async () => {
+    const admin = await adminClient();
+    const titles = Array.from({ length: 5001 }, (_, i) => `t${i}`);
+    expect((await admin.post("/api/import/cosense/check", { titles })).status).toBe(400);
+  });
+});
+
 describe("Cosense の取り込み（1 ページ）", () => {
   it("ログインしていなければ 401", async () => {
     expect((await new Client().post("/api/import/cosense/pages", page())).status).toBe(401);
