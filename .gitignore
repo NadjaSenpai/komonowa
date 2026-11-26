@@ -4,6 +4,10 @@ dist/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
+# Wrangler は .dev.vars がないとき .env も読むので、シークレットを置かれても追跡しない
+.env
+.env.*
+.DS_Store
 backups/
 *.log
 # 以前の静的モック（実用版には含めない）
@@ -18,3 +22,6 @@ docs/screenshots/
 # design tooling
 .hallmark/
 .taste-skill/
+
+# Local draft for the komonowa wiki
+/docs/komonowa-architecture.md
