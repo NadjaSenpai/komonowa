@@ -5,6 +5,7 @@ import { Byline } from "../Avatar";
 import { renderMarkdown } from "../markdown";
 import { useInternalLinks } from "../useInternalLinks";
 import { ErrorAlert } from "../ErrorAlert";
+import { HistoryDiff } from "../HistoryDiff";
 
 interface RevisionSummary {
   version: number;
@@ -30,6 +31,8 @@ export function HistoryPage() {
   const [article, setArticle] = useState<Article | null>(null);
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [selected, setSelected] = useState<Revision | null>(null);
+  // 差分を出しているときの 1 つ前の版（null なら selected の全文を出す）
+  const [previous, setPrevious] = useState<Revision | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -49,11 +52,24 @@ export function HistoryPage() {
     void load();
   }, [load]);
 
-  const html = useMemo(() => (selected ? renderMarkdown(selected.body) : ""), [selected]);
+  const html = useMemo(() => (selected && !previous ? renderMarkdown(selected.body) : ""), [selected, previous]);
+
+  const fetchRevision = async (version: number) => (await api.get<{ revision: Revision }>(`/articles/${id}/revisions/${version}`)).revision;
 
   async function show(version: number) {
     try {
-      setSelected((await api.get<{ revision: Revision }>(`/articles/${id}/revisions/${version}`)).revision);
+      setSelected(await fetchRevision(version));
+      setPrevious(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  async function showDiff(version: number) {
+    try {
+      const [before, after] = await Promise.all([fetchRevision(version - 1), fetchRevision(version)]);
+      setSelected(after);
+      setPrevious(before);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -106,6 +122,11 @@ export function HistoryPage() {
                     <button type="button" className="secondary small" onClick={() => show(r.version)}>
                       表示
                     </button>
+                    {r.version > 1 && (
+                      <button type="button" className="secondary small" onClick={() => showDiff(r.version)}>
+                        差分
+                      </button>
+                    )}
                     {r.version !== article.version && (
                       <button type="button" className="small" onClick={() => restore(r.version)}>
                         復元
@@ -121,11 +142,18 @@ export function HistoryPage() {
           <section className="revision">
             <h2>
               第{selected.version}版：{selected.title}
+              {previous && <span className="muted small">（第{previous.version}版との差分）</span>}
             </h2>
-            <p className="meta">{selected.tags.map((t) => `#${t}`).join(" ")}</p>
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: 描画した本文の中のリンクのクリックを、包む要素でまとめて受ける */}
-            {/* biome-ignore lint/a11y/useKeyWithClickEvents: リンクは Enter でもクリックとして届くので、キー操作は別に要らない */}
-            <div className="markdown" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
+            {previous ? (
+              <HistoryDiff before={previous} after={selected} />
+            ) : (
+              <>
+                <p className="meta">{selected.tags.map((t) => `#${t}`).join(" ")}</p>
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: 描画した本文の中のリンクのクリックを、包む要素でまとめて受ける */}
+                {/* biome-ignore lint/a11y/useKeyWithClickEvents: リンクは Enter でもクリックとして届くので、キー操作は別に要らない */}
+                <div className="markdown" onClick={onBodyClick} dangerouslySetInnerHTML={{ __html: html }} />
+              </>
+            )}
           </section>
         )}
       </div>
