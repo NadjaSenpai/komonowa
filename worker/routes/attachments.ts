@@ -37,6 +37,11 @@ const TYPES: Record<string, FileType> = {
   zip: { mime: "application/zip", kind: "zip" },
 };
 
+/** 許可する拡張子の Content-Type（許可していなければ undefined） */
+export function mimeOf(ext: string): string | undefined {
+  return TYPES[ext]?.mime;
+}
+
 function startsWith(bytes: Uint8Array, sig: number[], offset = 0) {
   return sig.every((b, i) => bytes[offset + i] === b);
 }
@@ -142,7 +147,7 @@ function created(id: string, upload: Upload) {
 }
 
 /** 期限切れの下書き添付を少しずつ消す（cron を持たないので、アップロードのついでに行う） */
-async function purgeExpiredDrafts(env: Env) {
+export async function purgeExpiredDrafts(env: Env) {
   const { results } = await env.DB.prepare("SELECT id, r2_key, thumb_key FROM attachments WHERE article_id IS NULL AND created_at < ? LIMIT 50")
     .bind(Date.now() - DRAFT_TTL_MS)
     .all<{ id: string; r2_key: string; thumb_key: string | null }>();

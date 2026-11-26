@@ -9,6 +9,7 @@ import { admin } from "./routes/admin";
 import { articles } from "./routes/articles";
 import { MAX_FILE_BYTES, MAX_THUMB_BYTES, attachments } from "./routes/attachments";
 import { auth } from "./routes/auth";
+import { importRoutes } from "./routes/import";
 import { share } from "./routes/share";
 import { avatars, profile } from "./routes/profile";
 import { users } from "./routes/users";
@@ -33,6 +34,7 @@ app.route("/users", users);
 app.route("/admin", admin);
 app.route("/articles", articles);
 app.route("/share", share);
+app.route("/import", importRoutes);
 app.route("/x-preview", xPreview);
 app.route("/", attachments);
 
