@@ -63,9 +63,6 @@ export function UserMenu({ user, onLogout }: { user: User; onLogout: () => void 
           <li>
             <Link to="/account">アカウント設定</Link>
           </li>
-          <li>
-            <Link to="/import/cosense">Cosense から取り込む</Link>
-          </li>
           {user.role === "admin" && (
             <li>
               <Link to="/admin">サイト管理</Link>

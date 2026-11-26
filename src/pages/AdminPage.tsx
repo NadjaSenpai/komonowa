@@ -406,6 +406,14 @@ export function AdminPage() {
           </table>
         )}
       </section>
+
+      <section>
+        <h2>Cosense から取り込む</h2>
+        <p className="muted small">Cosense（旧 Scrapbox）のエクスポートファイルから、選んだページを記事として取り込みます。</p>
+        <Link to="/import/cosense" className="button secondary small">
+          取り込む画面を開く
+        </Link>
+      </section>
     </div>
   );
 }

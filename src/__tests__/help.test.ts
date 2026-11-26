@@ -22,6 +22,12 @@ describe("ヘルプページ", () => {
     expect(root.querySelector("#markdown")).not.toBeNull();
   });
 
+  it("「Cosense から引っ越す」は管理者にだけ出る", () => {
+    expect(render(false).querySelector("#cosense")).toBeNull();
+    expect(render(true).querySelector("#cosense")).not.toBeNull();
+    expect(render(true).querySelector('a[href="#cosense"]')).not.toBeNull();
+  });
+
   it("「管理者の方へ」は管理者にだけ出る", () => {
     expect(render(false).textContent).not.toContain("管理者の方へ");
     expect(render(true).textContent).toContain("管理者の方へ");

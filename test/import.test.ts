@@ -18,14 +18,18 @@ describe("Cosense の取り込み（同名チェック）", () => {
     expect((await new Client().post("/api/import/cosense/check", { titles: ["a"] })).status).toBe(401);
   });
 
+  it("メンバーは 403", async () => {
+    const { client: member } = await memberClient(await adminClient());
+    expect((await member.post("/api/import/cosense/check", { titles: ["a"] })).status).toBe(403);
+  });
+
   it("ごみ箱にない記事と titleKey が同じタイトルを返す", async () => {
     const admin = await adminClient();
-    const { client: member } = await memberClient(admin);
     await createArticle(admin, { title: "手順書" });
     await createArticle(admin, { title: "Memo" });
     const trashed = await createArticle(admin, { title: "消した記事" });
     expect((await admin.del(`/api/articles/${trashed.id}`)).status).toBe(200);
-    const res = await member.post("/api/import/cosense/check", { titles: ["手順書", "テジュンショ", "ＭＥＭＯ", "消した記事", "新規"] });
+    const res = await admin.post("/api/import/cosense/check", { titles: ["手順書", "テジュンショ", "ＭＥＭＯ", "消した記事", "新規"] });
     expect(res.status).toBe(200);
     expect(await json(res)).toEqual({ taken: ["手順書", "ＭＥＭＯ"] });
   });
@@ -42,21 +46,28 @@ describe("Cosense の取り込み（1 ページ）", () => {
     expect((await new Client().post("/api/import/cosense/pages", page())).status).toBe(401);
   });
 
-  it("メンバーと管理者が取り込め、日付を引き継ぐ", async () => {
+  it("メンバーは 403 で、記事も画像の取得もしない", async () => {
     const admin = await adminClient();
     const { client: member } = await memberClient(admin);
-    for (const client of [admin, member]) {
-      const res = await client.post("/api/import/cosense/pages", page({ tags: ["メモ"] }));
-      expect(res.status).toBe(201);
-      const { article, images } = await json(res);
-      expect(images).toEqual({ saved: 0, failed: 0 });
-      const loaded = (await json(await client.get(`/api/articles/${article.id}`))).article;
-      expect(loaded.created_at).toBe(Date.UTC(2024, 0, 1));
-      expect(loaded.updated_at).toBe(Date.UTC(2024, 5, 1));
-      expect(loaded.tags).toEqual(["メモ"]);
-      const { revisions } = await json(await client.get(`/api/articles/${article.id}/revisions`));
-      expect(revisions.map((r: any) => [r.action, r.created_at])).toEqual([["create", Date.UTC(2024, 5, 1)]]);
-    }
+    const fetchImage = vi.spyOn(globalThis, "fetch");
+    const res = await member.post("/api/import/cosense/pages", page({ title: "メンバーの取り込み", body: "![](https://scrapbox.io/files/a.png)" }));
+    expect(res.status).toBe(403);
+    expect(fetchImage).not.toHaveBeenCalled();
+    expect((await json(await admin.post("/api/import/cosense/check", { titles: ["メンバーの取り込み"] }))).taken).toEqual([]);
+  });
+
+  it("管理者が取り込め、日付を引き継ぐ", async () => {
+    const admin = await adminClient();
+    const res = await admin.post("/api/import/cosense/pages", page({ tags: ["メモ"] }));
+    expect(res.status).toBe(201);
+    const { article, images } = await json(res);
+    expect(images).toEqual({ saved: 0, failed: 0 });
+    const loaded = (await json(await admin.get(`/api/articles/${article.id}`))).article;
+    expect(loaded.created_at).toBe(Date.UTC(2024, 0, 1));
+    expect(loaded.updated_at).toBe(Date.UTC(2024, 5, 1));
+    expect(loaded.tags).toEqual(["メモ"]);
+    const { revisions } = await json(await admin.get(`/api/articles/${article.id}/revisions`));
+    expect(revisions.map((r: any) => [r.action, r.created_at])).toEqual([["create", Date.UTC(2024, 5, 1)]]);
   });
 
   it("範囲外の日付は現在時刻にする", async () => {

@@ -86,7 +86,7 @@ export function App() {
         <Route path="/users" element={<Protected page={<UsersPage />} />} />
         <Route path="/users/:id" element={<Protected page={<UserPage />} />} />
         <Route path="/account" element={<Protected page={<AccountPage />} />} />
-        <Route path="/import/cosense" element={<Protected page={<CosenseImportPage />} />} />
+        <Route path="/import/cosense" element={<Protected admin page={<CosenseImportPage />} />} />
         <Route path="/admin" element={<Protected admin page={<AdminPage />} />} />
         <Route path="*" element={<Protected page={<p>ページが見つかりません。</p>} />} />
       </Routes>
