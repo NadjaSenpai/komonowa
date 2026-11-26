@@ -205,53 +205,60 @@ export function ArticleViewPage() {
     <article className="article-page">
       <div className="article-layout">
         <div className="article-main">
-          <div className="article-head">
+          <div className="article-head article-view-head">
             <h1>{article.title}</h1>
             <div className="actions">
               <Link className="button" to={`/articles/${id}/edit`}>
                 編集
               </Link>
-              <Link className="button secondary" to={`/articles/${id}/history`}>
-                履歴
-              </Link>
-              <button
-                type="button"
-                className="secondary"
-                aria-pressed={article.pinned_at !== null}
-                title="記事の一覧の先頭に出します。誰でも付け外しできます"
-                onClick={togglePin}
-              >
-                {article.pinned_at !== null ? "ピン留めを外す" : "ピン留め"}
-              </button>
               <button type="button" className="secondary" aria-expanded={shareOpen} onClick={() => setShareOpen((o) => !o)}>
                 共有
               </button>
-              <button type="button" className="danger" onClick={remove}>
-                削除
-              </button>
+              <details className="article-more">
+                <summary className="button secondary">その他</summary>
+                <div className="article-more-panel">
+                  <Link className="button secondary" to={`/articles/${id}/history`}>
+                    履歴
+                  </Link>
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-pressed={article.pinned_at !== null}
+                    title="記事の一覧の先頭に出します。誰でも付け外しできます"
+                    onClick={togglePin}
+                  >
+                    {article.pinned_at !== null ? "ピン留めを外す" : "ピン留め"}
+                  </button>
+                  <button type="button" className="danger" onClick={remove}>
+                    削除
+                  </button>
+                </div>
+              </details>
             </div>
+            <FavoriteButton articleId={id} title={article.title} favorite={favorite} onChange={setFavorite} onError={setError} showLabel />
           </div>
           {shareOpen && <SharePanel articleId={id} share={share} onChange={setShare} />}
-          <FavoriteButton articleId={id} title={article.title} favorite={favorite} onChange={setFavorite} onError={setError} showLabel />
           <p className="meta">
-            {article.pinned_at !== null && (
-              <span className="shared-badge" title="記事の一覧の先頭に出ます">
-                ピン留め
-              </span>
-            )}
-            {share && (
-              <span className="shared-badge" title="URL を知っている人はログインなしで読めます">
-                共有中
-              </span>
-            )}
-            {article.tags.map((t) => (
-              <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>
-                #{t}
-              </Link>
-            ))}
-            <span className="meta-item">
+            <span className="article-topics">
+              {article.pinned_at !== null && (
+                <span className="shared-badge" title="記事の一覧の先頭に出ます">
+                  ピン留め
+                </span>
+              )}
+              {share && (
+                <span className="shared-badge" title="URL を知っている人はログインなしで読めます">
+                  共有中
+                </span>
+              )}
+              {article.tags.map((t) => (
+                <Link key={t} className="tag small" to={`/?tag=${encodeURIComponent(t)}`}>
+                  #{t}
+                </Link>
+              ))}
+            </span>
+            <span className="meta-item article-updated-by">
               <Byline userId={article.updated_by} name={article.updated_by_name} avatarId={article.updated_by_avatar} />
-              {formatDate(article.updated_at)} 更新
+              <span>{formatDate(article.updated_at)} 更新</span>
             </span>
             {article.created_by !== article.updated_by && (
               <span className="meta-item">

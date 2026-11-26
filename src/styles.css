@@ -98,7 +98,7 @@ button.link:hover { background: none; text-decoration: underline; }
   min-height: 64px; padding: var(--space-sm) max(var(--space-lg), calc((100% - var(--content)) / 2 + var(--space-lg)));
   background: var(--color-paper-2); border-bottom: 1px solid var(--color-rule);
 }
-.brand { font-weight: 700; font-size: var(--text-xl); letter-spacing: -0.01em; color: var(--color-accent); text-decoration: none; }
+.brand { font-weight: 700; font-size: 1.5625rem; letter-spacing: -0.01em; color: var(--color-accent); text-decoration: none; }
 .topbar nav { margin-left: auto; display: flex; gap: var(--space-lg); align-items: center; flex-wrap: wrap; font-size: var(--text-sm); }
 .topbar nav a { color: var(--color-muted); text-decoration: none; }
 .topbar nav a:hover { color: var(--color-ink); }
@@ -128,7 +128,8 @@ button.link:hover { background: none; text-decoration: underline; }
 /* ---------- ログイン ---------- */
 .auth { min-height: 100dvh; display: grid; place-items: center; padding: var(--space-md); }
 /* ロゴ（Logo.tsx）。ロゴだけ丸い字のフォント（Comfortaa）にして、最初の o だけ色を変える */
-.logo { font-family: "Comfortaa", var(--font-body, sans-serif); }
+.logo { display: inline-flex; align-items: center; gap: 7px; font-family: "Comfortaa", var(--font-body, sans-serif); white-space: nowrap; }
+.logo img { flex: none; }
 .logo-o { color: var(--color-logo-o); }
 .auth .brand { display: block; margin: 0 0 var(--space-lg); font-size: var(--text-2xl); }
 .card { width: 100%; max-width: 400px; padding: var(--space-xl) var(--space-lg); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); }
@@ -317,11 +318,18 @@ a.byline:hover > span:last-child { text-decoration: underline; }
 
 /* ---------- 記事 ---------- */
 .article-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); flex-wrap: wrap; }
+.article-more { position: relative; }
+.article-more summary::-webkit-details-marker { display: none; }
+.article-more summary::after { content: ""; border: solid currentColor; border-width: 0 1px 1px 0; width: 5px; height: 5px; transform: translateY(-2px) rotate(45deg); }
+.article-more[open] summary::after { transform: translateY(1px) rotate(225deg); }
+.article-more-panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-xs)); z-index: var(--z-dropdown); display: grid; gap: var(--space-2xs); padding: var(--space-xs); background: var(--color-paper-2); border: 1px solid var(--color-rule); border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
 /* 左端はほかの画面と同じ線にそろえる（中央寄せにしない）。広い画面では本文 760px の右に目次・被リンク・添付の欄 */
 .article-page { margin: 0; }
 .article-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
 .article-page .article-head { margin-bottom: var(--space-sm); }
+.article-view-head > .favorite-toggle.with-label { flex-basis: 100%; justify-content: flex-start; margin: 0; }
 .article-page h1 { font-size: var(--text-3xl); margin: 0; }
+.article-topics { display: contents; }
 .article-main > .meta { margin-bottom: var(--space-xl); padding-bottom: var(--space-lg); border-bottom: 1px solid var(--color-rule); }
 /* 目次：狭い画面では本文の上に畳んで、広い画面では右欄に */
 .toc-list { list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); line-height: 1.6; }
@@ -494,20 +502,65 @@ tr.selected { background: var(--color-selected); }
 
 /* ---------- スマホ ---------- */
 @media (max-width: 760px) {
-  .topbar { padding: var(--space-md) var(--space-lg); }
-  .topbar nav { order: 3; width: 100%; margin-left: 0; gap: var(--space-md); }
-  .content { padding: 28px var(--space-lg) var(--space-2xl); }
-  .list-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-md); }
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2xs) var(--space-md); padding: var(--space-xs) var(--space-md) 0; }
+  .topbar:has(.brand:only-child) { padding-block: var(--space-sm); }
+  .topbar .brand { justify-self: start; }
+  .topbar .new-article { grid-area: 1 / 2; padding-inline: var(--space-xs); font-size: var(--text-sm); }
+  .topbar nav { grid-column: 1 / -1; margin: 0; flex-wrap: nowrap; gap: var(--space-md); }
+  .topbar nav > a { display: flex; align-items: center; min-height: var(--hit); white-space: nowrap; border-bottom: 2px solid transparent; }
+  .topbar nav > a.active { border-bottom-color: currentColor; text-decoration: none; }
+  .topbar nav .user-menu { min-width: 0; margin-inline-start: auto; }
+  .topbar nav .account { min-height: var(--hit); max-width: 100%; border: none; }
+  .topbar nav .account > span:nth-of-type(2) { max-width: 7rem; }
+  .content { padding: var(--space-lg) var(--space-md) var(--space-2xl); }
+  .content:has(> .list-layout) { padding-top: var(--space-sm); }
+  .list-layout { grid-template-columns: minmax(0, 1fr); gap: var(--space-sm); }
+  .list-views { margin-bottom: var(--space-xs); }
+  .list-views button, .list-controls .search button { min-height: var(--hit); padding-inline: var(--space-sm); font-size: var(--text-sm); }
+  .active-filters > span { overflow-wrap: anywhere; }
+  .active-filters .filter-label { display: none; }
   /* スマホではタグを一覧の上に 1 行で置き、横にスクロールさせる */
   .sidebar { padding-top: 0; }
-  .sidebar h2 { display: block; margin-bottom: var(--space-xs); font-size: var(--text-xs); color: var(--color-muted); }
+  .sidebar h2, .list-layout > .sidebar:not(:has(.tag)) { display: none; }
   .tag-scroll { position: relative; }
   .tag-scroll::after { content: ""; position: absolute; right: 0; top: 0; bottom: var(--space-2xs); width: 24px; background: linear-gradient(90deg, transparent, var(--color-paper)); pointer-events: none; }
   .sidebar .tags { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--space-2xs); }
   .sidebar .tag { flex: none; }
-  .tag-cloud .tag { --tag-max: var(--text-lg); }
-  .article-page h1 { font-size: var(--text-2xl); }
-  .topbar nav .account > span:last-child { max-width: 120px; }
+  .sidebar .tag-cloud .tag { min-height: var(--hit); font-size: var(--text-sm); }
+  .article-list.cards { grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); }
+  .list-layout .article-list.cards > li { padding-block: var(--space-xs) var(--space-3xs); }
+  .article-list.cards .title { display: block; font-size: var(--text-md); overflow-wrap: anywhere; text-wrap: balance; }
+  .article-list.cards .excerpt { flex: auto; min-height: 0; mask-image: none; font-size: var(--text-sm); }
+  .list-layout:not([data-searching]) .article-list.cards .excerpt-link { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+  .article-list.cards .article-tags { flex-wrap: wrap; align-items: center; gap: 0 var(--space-sm); mask-image: none; }
+  .article-list.cards .article-tags .tag { flex: 0 1 auto; min-width: 0; min-height: var(--control-s); white-space: normal; overflow-wrap: anywhere; text-align: start; }
+  .article-list.cards .article-update { display: grid; grid-template-columns: minmax(0, 1fr) var(--hit) var(--hit); grid-template-rows: repeat(2, minmax(calc(var(--hit) / 2), auto)); gap: 0; padding-top: var(--space-3xs); border-top: 1px solid var(--color-rule); line-height: 1.25; }
+  .article-list.cards .article-update > button { grid-row: 1 / span 2; justify-self: stretch; min-width: var(--hit); min-height: var(--hit); }
+  .article-list.cards .article-update > .favorite-toggle { grid-column: 2; }
+  .article-list.cards .article-update > .pin-toggle { grid-column: 3; }
+  .article-list.cards .article-update > .byline { grid-area: 1 / 1 / span 2; align-self: stretch; justify-self: start; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: subgrid; row-gap: 0; max-width: calc(100% - var(--space-xs)); }
+  .article-list.cards .article-update > .byline .avatar { grid-row: 1 / span 2; }
+  .article-list.cards .article-update > .byline > span:last-child { align-self: end; }
+  .article-list.cards .article-update > .meta-item:last-child { grid-area: 2 / 1; justify-self: start; align-self: start; padding-inline-start: calc(var(--avatar-s) + var(--space-xs)); font-variant-numeric: tabular-nums; }
+  .article-page h1 { font-size: var(--text-2xl); line-height: 1.35; overflow-wrap: anywhere; }
+  .article-page .article-view-head { justify-content: flex-start; align-items: center; column-gap: var(--space-xs); }
+  .article-view-head > h1 { flex-basis: 100%; }
+  .article-view-head > .actions > :is(.button, button), .article-more summary { min-width: var(--hit); min-height: var(--hit); padding-inline: var(--space-sm); font-size: var(--text-sm); }
+  .article-more summary { display: flex; }
+  .article-view-head > .favorite-toggle.with-label { flex-basis: auto; justify-content: center; width: var(--hit); min-height: var(--hit); border-color: var(--color-rule); background: var(--color-paper-2); }
+  .article-view-head > .favorite-toggle.with-label > span { display: none; }
+  .article-main > .meta { gap: var(--space-2xs) var(--space-xs); margin-bottom: var(--space-md); padding-bottom: var(--space-md); }
+  .article-topics { display: flex; flex: 0 0 100%; flex-wrap: wrap; align-items: center; gap: 0 var(--space-xs); }
+  .article-topics:empty { display: none; }
+  .article-topics .tag { display: inline-flex; min-height: var(--control-s); align-items: center; white-space: normal; overflow-wrap: anywhere; }
+  .article-main > .meta > .meta-item { min-width: 0; max-width: 100%; }
+  .article-updated-by { flex-wrap: wrap; gap: var(--space-2xs) var(--space-xs); }
+  .article-main > .meta .byline { min-width: 0; max-width: 100%; }
+  .article-main > .meta .byline > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .toc-inline { margin-bottom: var(--space-md); padding-block: 0; }
+  .toc-inline[open] { padding-bottom: var(--space-xs); }
+  .toc-inline[open] summary { margin-bottom: 0; }
+  .toc-inline summary { min-height: var(--hit); align-content: center; }
   .editor-savebar { gap: var(--space-xs); }
   .editor-savebar button { padding-inline: var(--space-sm); font-size: var(--text-sm); }
   .editor-savebar button[type=submit] { min-width: 72px; }
@@ -520,6 +573,7 @@ tr.selected { background: var(--color-selected); }
   button.small, .button.small { min-height: var(--hit); }
   .tag { min-height: var(--hit); }
   .pin-toggle { min-height: var(--hit); min-width: var(--hit); }
+  .article-list.cards :is(.favorite-toggle, .pin-toggle) { min-width: var(--hit); min-height: var(--hit); }
   .markup-toolbar button, .markup-more summary { min-height: var(--hit); }
 }
 
