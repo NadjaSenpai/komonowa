@@ -107,7 +107,7 @@ export function ArticleListPage() {
   }
 
   return (
-    <div className="list-layout">
+    <div className="list-layout" data-searching={q ? true : undefined}>
       <div className="list-controls">
         {/* 見れば一覧とわかるので見出しは出さず、読み上げ用にだけ残す */}
         <h1 className="visually-hidden">記事</h1>
@@ -123,7 +123,7 @@ export function ArticleListPage() {
         <form onSubmit={submit} className="search">
           <input
             type="search"
-            placeholder="キーワードで検索"
+            placeholder="キーワード"
             title="空白で区切ると、すべてを含む記事を探します"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -135,7 +135,7 @@ export function ArticleListPage() {
         </form>
         {(q || selected.length > 0) && (
           <div className="active-filters" role="group" aria-label="絞り込み条件">
-            <span className="small muted">絞り込み中</span>
+            <span className="small muted filter-label">絞り込み中</span>
             {q && <span className="small">「{q}」</span>}
             {selected.map((t) => (
               <button key={t} type="button" className="filter-chip" aria-label={`タグ「${t}」の絞り込みを解除`} onClick={() => toggleTag(t)}>

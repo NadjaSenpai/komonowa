@@ -1,8 +1,11 @@
-/** サイト名のロゴ。最初の「o」だけ色を変える（styles.css の .logo-o） */
+/** favicon とサイト名を組み合わせたロゴ */
 export function Logo() {
   return (
     <span className="logo">
-      k<span className="logo-o">o</span>monowa
+      <img src="/favicon.svg?v=3" width={18} height={18} alt="" />
+      <span>
+        k<span className="logo-o">o</span>monowa
+      </span>
     </span>
   );
 }
