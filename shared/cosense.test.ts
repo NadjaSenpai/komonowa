@@ -69,6 +69,10 @@ describe("convertCosensePage", () => {
     expect(body("式 [$ x^2] です")).toBe("式 `x^2` です");
   });
 
+  it("本文の先頭と末尾の空行は除く", () => {
+    expect(body("", "", "本文", "", " a", "")).toBe("本文\n\n- a");
+  });
+
   it("インラインコードの中は変換しない", () => {
     expect(body("`[a]` と [b]")).toBe("`[a]` と [[b]]");
   });

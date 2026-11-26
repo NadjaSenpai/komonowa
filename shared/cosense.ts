@@ -216,7 +216,8 @@ class Converter {
       if (converted !== null) out.push(converted);
       i++;
     }
-    return out.join("\n").replace(/\s+$/, "");
+    // 先頭の空行（タイトルの次の空行）と末尾の空白を除く。先頭の行の字下げは残す
+    return out.join("\n").replace(/^\n+/, "").replace(/\s+$/, "");
   }
 }
 

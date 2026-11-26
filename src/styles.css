@@ -467,6 +467,17 @@ dialog.lightbox iframe { display: block; width: min(96vw, calc(86vh * 16 / 9)); 
 .conflict { border: 2px solid var(--color-error); border-radius: var(--radius-card); padding: var(--space-sm) var(--space-md); background: var(--color-paper-2); }
 .conflict pre { max-height: 16rem; overflow: auto; background: var(--color-paper-3); padding: var(--space-sm); white-space: pre-wrap; font-family: var(--font-outlier); }
 
+/* Cosense から取り込む（/import/cosense） */
+.cosense-import { max-width: 960px; }
+.import-file { margin-block: var(--space-md); }
+.import-file input { margin-top: var(--space-2xs); padding: var(--space-xs); }
+.import-actions { margin-block: var(--space-md) var(--space-sm); }
+.import-actions button:last-child { margin-left: auto; }
+.import-table td:first-child { width: 4.5rem; text-align: center; }
+.import-table input[type="checkbox"] { width: 1.25rem; min-height: 1.25rem; accent-color: var(--color-accent); }
+.import-table td p.error { margin: var(--space-3xs) 0 0; }
+.import-result h2 { font-size: var(--text-md); }
+
 /* ---------- 表（管理・履歴） ---------- */
 table { width: 100%; border-collapse: collapse; margin-bottom: var(--space-xs); font-size: var(--text-sm); }
 th, td { text-align: left; border-bottom: 1px solid var(--color-rule); padding: var(--space-xs) var(--space-sm) var(--space-xs) 0; vertical-align: middle; }
