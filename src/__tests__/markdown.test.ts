@@ -41,6 +41,12 @@ describe("markdownToText", () => {
     expect(markdownToText("本文です。\n\n```bash\nnpm run d")).toBe("本文です。 npm run d");
   });
 
+  it("末尾で切れた画像やリンクの記法を文字として出さない", () => {
+    expect(markdownToText("本文です。\n\n![HX")).toBe("本文です。");
+    expect(markdownToText("本文です。![写真](/api/attachments/ab")).toBe("本文です。");
+    expect(markdownToText("詳しくは[手順書](https://exa")).toBe("詳しくは手順書");
+  });
+
   it("HTML タグは文字として出さない", () => {
     expect(markdownToText("<b>太字</b>と<script>alert(1)</script>本文")).toBe("太字と本文");
   });

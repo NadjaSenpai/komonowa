@@ -35,7 +35,9 @@ export function renderMarkdown(source: string): string {
 
 /** 一覧の抜粋用。Markdown を描画してから文字だけを取り出す（見出しと動画の枠は除く） */
 export function markdownToText(source: string, includeHeadings = false): string {
-  const doc = new DOMParser().parseFromString(renderMarkdown(source), "text/html");
+  // 一覧の抜粋は本文の先頭で切ってあるので、末尾で閉じていない画像は消し、リンクは文字だけ残す
+  const trimmed = source.replace(/!\[[^\]\n]*(\]\([^)\n]*)?$/, "").replace(/\[([^\]\n]*)\]\([^)\n]*$/, "$1");
+  const doc = new DOMParser().parseFromString(renderMarkdown(trimmed), "text/html");
   doc.body.querySelectorAll(includeHeadings ? ".video-embed" : "h1, h2, h3, h4, h5, h6, .video-embed").forEach((h) => h.remove());
   doc.body.querySelectorAll("p, li, pre, blockquote, td, th, br").forEach((el) => el.append(" "));
   return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
