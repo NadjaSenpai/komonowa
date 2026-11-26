@@ -12,6 +12,7 @@ import { WikiLinkPage } from "./pages/WikiLinkPage";
 
 // たまにしか開かない画面は、開いたときに読み込む（最初に読み込む JS を減らす）
 const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ default: m.AccountPage })));
+const CosenseImportPage = lazy(() => import("./pages/CosenseImportPage").then((m) => ({ default: m.CosenseImportPage })));
 const AdminPage = lazy(() => import("./pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 const HelpPage = lazy(() => import("./pages/HelpPage").then((m) => ({ default: m.HelpPage })));
 const HistoryPage = lazy(() => import("./pages/HistoryPage").then((m) => ({ default: m.HistoryPage })));
@@ -85,6 +86,7 @@ export function App() {
         <Route path="/users" element={<Protected page={<UsersPage />} />} />
         <Route path="/users/:id" element={<Protected page={<UserPage />} />} />
         <Route path="/account" element={<Protected page={<AccountPage />} />} />
+        <Route path="/import/cosense" element={<Protected page={<CosenseImportPage />} />} />
         <Route path="/admin" element={<Protected admin page={<AdminPage />} />} />
         <Route path="*" element={<Protected page={<p>ページが見つかりません。</p>} />} />
       </Routes>

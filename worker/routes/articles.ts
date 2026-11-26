@@ -38,7 +38,7 @@ function readTitle(body: Record<string, unknown>): string {
   return title;
 }
 
-function readArticleInput(body: Record<string, unknown>) {
+export function readArticleInput(body: Record<string, unknown>) {
   return {
     title: readTitle(body),
     body: str(body, "body", { min: 0, max: 200_000, label: "本文", trim: false }),
@@ -257,32 +257,47 @@ articles.get("/tags", async (c) => {
   return c.json({ tags: results });
 });
 
+/**
+ * 新しい記事を作る（1 版目の履歴・タグ・下書き添付のひもづけまで 1 バッチ）。同じタイトルがあれば 409。
+ * 日時は Cosense からの取り込み（routes/import.ts）が元の日付を引き継ぐために受け取る。1 版目の履歴の日時は updatedAt
+ */
+export async function createArticle(
+  db: D1Database,
+  a: { input: { title: string; body: string; tags: string[] }; userId: string; createdAt: number; updatedAt: number; attachmentIds: string[] },
+): Promise<string> {
+  const id = crypto.randomUUID();
+  const revisionId = crypto.randomUUID();
+  const key = titleKey(a.input.title);
+  await assertTitleFree(db, key, id);
+  await batchGuardingTitle(db, [
+    db
+      .prepare(
+        `INSERT INTO articles (id, title, title_key, body, version, revision_id, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
+      )
+      .bind(id, a.input.title, key, a.input.body, revisionId, a.userId, a.userId, a.createdAt, a.updatedAt),
+    // 下書き添付は、一覧に出す画像を選ぶ（writeStatements）より先にひもづける
+    ...(a.attachmentIds.length > 0
+      ? [
+          db
+            .prepare(
+              `UPDATE attachments SET article_id = ?
+              WHERE article_id IS NULL AND uploaded_by = ? AND id IN (${a.attachmentIds.map(() => "?").join(", ")})`,
+            )
+            .bind(id, a.userId, ...a.attachmentIds),
+        ]
+      : []),
+    ...writeStatements(db, id, revisionId, 1, a.input, "create", a.userId, a.updatedAt),
+  ]);
+  return id;
+}
+
 articles.post("/", async (c) => {
   const body = await readJson(c);
   const input = readArticleInput(body);
   const attachmentIds = readAttachmentIds(body.attachmentIds);
-  const id = crypto.randomUUID();
-  const revisionId = crypto.randomUUID();
   const now = Date.now();
-  const userId = c.var.user.id;
-  const key = titleKey(input.title);
-  await assertTitleFree(c.env.DB, key, id);
-  await batchGuardingTitle(c.env.DB, [
-    c.env.DB.prepare(
-      `INSERT INTO articles (id, title, title_key, body, version, revision_id, created_by, updated_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
-    ).bind(id, input.title, key, input.body, revisionId, userId, userId, now, now),
-    // 下書き添付は、一覧に出す画像を選ぶ（writeStatements）より先にひもづける
-    ...(attachmentIds.length > 0
-      ? [
-          c.env.DB.prepare(
-            `UPDATE attachments SET article_id = ?
-              WHERE article_id IS NULL AND uploaded_by = ? AND id IN (${attachmentIds.map(() => "?").join(", ")})`,
-          ).bind(id, userId, ...attachmentIds),
-        ]
-      : []),
-    ...writeStatements(c.env.DB, id, revisionId, 1, input, "create", userId, now),
-  ]);
+  const id = await createArticle(c.env.DB, { input, userId: c.var.user.id, createdAt: now, updatedAt: now, attachmentIds });
   return c.json({ article: await loadArticle(c.env.DB, id) }, 201);
 });
 

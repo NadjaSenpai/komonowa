@@ -17,6 +17,7 @@ export const HELP_SECTIONS: { id: string; title: string; admin?: boolean }[] = [
   { id: "trash", title: "記事の削除" },
   { id: "share", title: "記事を共有する" },
   { id: "account", title: "アカウント" },
+  { id: "cosense", title: "Cosense から引っ越す" },
   { id: "trouble", title: "困ったとき" },
   { id: "markdown", title: "Markdown の書き方（記号で書きたい人へ）" },
   { id: "admin", title: "管理者の方へ", admin: true },
@@ -231,6 +232,20 @@ export function HelpContent({ admin }: { admin: boolean }) {
           <li>
             退会：現在のパスワードを入れて「退会する」を押すと、名前・メールアドレス・アイコン・自己紹介・パスワードが消えます。書いた記事と履歴は「（削除されたユーザー）」の名前で残ります。自分が始めた外部共有も止まります。取り消せません。所有者は退会できません。
           </li>
+        </ul>
+      </Section>
+
+      <Section id="cosense" title={title("cosense")}>
+        <p>
+          Cosense（旧 Scrapbox）のページを、komonowa の記事として取り込めます。右上の自分の名前のメニューから
+          <Link to="/import/cosense">「Cosense から取り込む」</Link>を開いてください。
+        </p>
+        <ul>
+          <li>Cosense のプロジェクト設定の「Export Pages」で書き出した JSON ファイルを選び、取り込むページにチェックを付けます。</li>
+          <li>リンク・太字・箇条書き・コード・表などは、komonowa の書き方に直して取り込みます。#タグ は記事のタグにもなります。</li>
+          <li>作成日と更新日は Cosense のものを引き継ぎます。書いた人は、取り込んだあなたになります。</li>
+          <li>同じタイトルの記事がすでにあるページは、チェックが外れています。タイトルを変えると取り込めます。今ある記事を上書きすることはありません。</li>
+          <li>Cosense と Gyazo の画像は komonowa に保存します。非公開のプロジェクトの画像など保存できないものは、元の URL のまま残ります。</li>
         </ul>
       </Section>
 
