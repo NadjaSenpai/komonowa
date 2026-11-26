@@ -497,6 +497,16 @@ tr.selected { background: var(--color-selected); }
 .history-title a { text-decoration: none; }
 .history-title a:hover { text-decoration: underline; }
 .revision { margin-top: var(--space-md); }
+.history-diff .meta { margin: 0 0 var(--space-2xs); }
+.diff { margin-top: var(--space-sm); border: 1px solid var(--color-rule); font-family: var(--font-outlier); font-variant-ligatures: none; font-size: var(--text-sm); line-height: 1.6; overflow-x: auto; }
+.diff-line { display: flex; gap: var(--space-2xs); padding: 0 var(--space-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff-sign { flex: none; width: 1ch; color: var(--color-muted); user-select: none; }
+.diff-text { flex: 1; min-width: 0; }
+.diff-del { background: color-mix(in oklch, var(--color-error) 14%, var(--color-paper)); }
+.diff-add { background: color-mix(in oklch, oklch(68% 0.15 150) 18%, var(--color-paper)); }
+.diff-del .diff-strong { background: color-mix(in oklch, var(--color-error) 32%, var(--color-paper)); }
+.diff-add .diff-strong { background: color-mix(in oklch, oklch(68% 0.15 150) 40%, var(--color-paper)); }
+.diff-skip { color: var(--color-muted); background: var(--color-paper-2); font-size: var(--text-xs); }
 .inline-form { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-bottom: var(--space-sm); }
 .inline-form input { width: auto; flex: 1 1 14rem; }
 
