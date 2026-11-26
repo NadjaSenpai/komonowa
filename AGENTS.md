@@ -28,6 +28,12 @@ Follow the conventions of the files and tools introduced to the project. Biome f
 
 Use Conventional Commits: `type(scope): description`, such as `fix(security): rate limit password checks`. Keep each commit focused. Put changes that may be destructive (schema migrations, deletions, permission or authentication changes) in a pull request instead of pushing to `main`. Pull requests should explain the purpose and changes, describe how they were checked, and link relevant issues. Include screenshots when a change affects a visible interface.
 
+## Local and Production Data
+
+Work against local resources only. Use `--local` for every D1 and R2 command, and never run anything that reaches production unless the user asks for it in the current task: `npm run db:migrate:remote`, `npm run backup:remote`, `npm run restore:r2 -- <dir> --remote`, `wrangler d1 execute --remote`, `wrangler r2 object put` without `--local`, or `wrangler deploy`. Production migrations are applied by CI when `main` is pushed, so there is no reason to migrate production by hand during development.
+
+The local D1 and R2 under `.wrangler/` hold dummy data (article titles start with `[ダミー]`). Never copy local data into production. `backups/` holds real production data, including password hashes; do not read, share, or restore it, and do not pull production data into the local database without asking.
+
 ## Configuration and Secrets
 
 Document required configuration and provide example values where useful. Keep credentials and other secrets out of version control. `SETUP_TOKEN` is the only secret; set it with `wrangler secret put` and delete it after creating the first administrator. Never commit `.dev.vars` or `backups/`.
