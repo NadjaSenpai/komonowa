@@ -5,7 +5,7 @@ import { titleKey } from "../../shared/wikilinks";
 import type { AppEnv } from "../env";
 import { fail, readJson } from "../http";
 import { fetchImportImage, isImportableImageUrl } from "../importImages";
-import { requireAuth } from "../session";
+import { requireAdmin, requireAuth } from "../session";
 import { assertTitleFree, createArticle, readArticleInput } from "./articles";
 import { mimeOf, purgeExpiredDrafts } from "./attachments";
 
@@ -15,7 +15,8 @@ const MIN_DATE = Date.UTC(2000, 0, 1);
 const IMAGE = /!\[[^\]]*\]\((https:\/\/[^)\s]+)\)/g;
 
 export const importRoutes = new Hono<AppEnv>();
-importRoutes.use("*", requireAuth);
+// 取り込みは管理者だけ（サイト管理の画面から使う）
+importRoutes.use("*", requireAuth, requireAdmin);
 
 /** 引き継ぐ日付。2000-01-01 以降かつ現在以下でなければ現在時刻 */
 function readDate(value: unknown, now: number): number {

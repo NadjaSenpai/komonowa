@@ -17,10 +17,10 @@ export const HELP_SECTIONS: { id: string; title: string; admin?: boolean }[] = [
   { id: "trash", title: "記事の削除" },
   { id: "share", title: "記事を共有する" },
   { id: "account", title: "アカウント" },
-  { id: "cosense", title: "Cosense から引っ越す" },
   { id: "trouble", title: "困ったとき" },
   { id: "markdown", title: "Markdown の書き方（記号で書きたい人へ）" },
   { id: "admin", title: "管理者の方へ", admin: true },
+  { id: "cosense", title: "Cosense から引っ越す", admin: true },
 ];
 
 /** 記法の早見表。preview があるものは実物を置けないので、表示側を言葉で説明する */
@@ -235,20 +235,6 @@ export function HelpContent({ admin }: { admin: boolean }) {
         </ul>
       </Section>
 
-      <Section id="cosense" title={title("cosense")}>
-        <p>
-          Cosense（旧 Scrapbox）のページを、komonowa の記事として取り込めます。右上の自分の名前のメニューから
-          <Link to="/import/cosense">「Cosense から取り込む」</Link>を開いてください。
-        </p>
-        <ul>
-          <li>Cosense のプロジェクト設定の「Export Pages」で書き出した JSON ファイルを選び、取り込むページにチェックを付けます。</li>
-          <li>リンク・太字・箇条書き・コード・表などは、komonowa の書き方に直して取り込みます。#タグ は記事のタグにもなります。</li>
-          <li>作成日と更新日は Cosense のものを引き継ぎます。書いた人は、取り込んだあなたになります。</li>
-          <li>同じタイトルの記事がすでにあるページは、チェックが外れています。タイトルを変えると取り込めます。今ある記事を上書きすることはありません。</li>
-          <li>Cosense と Gyazo の画像は komonowa に保存します。非公開のプロジェクトの画像など保存できないものは、元の URL のまま残ります。</li>
-        </ul>
-      </Section>
-
       <Section id="trouble" title={title("trouble")}>
         <ul>
           <li>パスワードを忘れたときは、管理者に再設定メールを送ってもらってください。</li>
@@ -312,6 +298,22 @@ export function HelpContent({ admin }: { admin: boolean }) {
             <li>「ごみ箱」の記事は「復元」で戻せます。「完全削除」すると履歴と添付ファイルも消え、元に戻せません。</li>
             <li>「共有中の記事」で、だれかが共有している記事を確かめて「共有を止める」ことができます。</li>
             <li>「タグ」の「名前を変更」と削除ができます。</li>
+          </ul>
+        </Section>
+      )}
+
+      {admin && (
+        <Section id="cosense" title={title("cosense")}>
+          <p>
+            Cosense（旧 Scrapbox）のページを、komonowa の記事として取り込めます（管理者だけ）。サイト管理の「Cosense から取り込む」から
+            <Link to="/import/cosense">取り込む画面</Link>を開いてください。
+          </p>
+          <ul>
+            <li>Cosense のプロジェクト設定の「Export Pages」で書き出した JSON ファイルを選び、取り込むページにチェックを付けます。</li>
+            <li>リンク・太字・箇条書き・コード・表などは、komonowa の書き方に直して取り込みます。#タグ は記事のタグにもなります。</li>
+            <li>作成日と更新日は Cosense のものを引き継ぎます。書いた人は、取り込んだあなたになります。</li>
+            <li>同じタイトルの記事がすでにあるページは、チェックが外れています。タイトルを変えると取り込めます。今ある記事を上書きすることはありません。</li>
+            <li>Cosense と Gyazo の画像は komonowa に保存します。非公開のプロジェクトの画像など保存できないものは、元の URL のまま残ります。</li>
           </ul>
         </Section>
       )}
