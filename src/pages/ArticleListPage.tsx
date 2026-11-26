@@ -109,9 +109,8 @@ export function ArticleListPage() {
   return (
     <div className="list-layout">
       <div className="list-controls">
-        <div className="list-heading">
-          <h1>記事</h1>
-        </div>
+        {/* 見れば一覧とわかるので見出しは出さず、読み上げ用にだけ残す */}
+        <h1 className="visually-hidden">記事</h1>
         <WelcomeNotice />
         <div className="list-views" role="group" aria-label="記事の表示">
           <button type="button" className="secondary small" aria-pressed={!favoritesOnly} onClick={() => update({ favorite: false })}>
@@ -151,8 +150,7 @@ export function ArticleListPage() {
         )}
       </div>
       <aside className="sidebar">
-        <h2>タグで絞り込み</h2>
-        <p className="muted small hint">複数選ぶとすべてを含む記事に絞り込みます</p>
+        <h2>タグ</h2>
         <div className="tag-scroll">
           <div className="tags tag-cloud" role="group" aria-label="タグで絞り込み">
             {tags.map((t) => (
@@ -196,12 +194,12 @@ export function ArticleListPage() {
               記事がありません。<Link to="/articles/new">新しく作成</Link>しましょう。
             </p>
           ))}
-        <ul className="article-list tinted">
+        <ul className="article-list tinted cards">
           {items?.map((a) => (
             <li
               key={a.id}
               className={a.cover || a.cover_video ? "has-cover" : undefined}
-              // 行の左の色の線。最初のタグの色にする（タグがなければ CSS の既定の灰色）
+              // カードの左の色の線。最初のタグの色にする（タグがなければ CSS の既定の灰色）
               style={a.tags[0] ? ({ "--tag-hue": tagHue(a.tags[0]) } as CSSProperties) : undefined}
             >
               {a.cover_video ? (
