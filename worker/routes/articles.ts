@@ -303,11 +303,18 @@ articles.post("/", async (c) => {
 
 // [[タイトル]] の行き先。/:id より前に登録する
 articles.get("/by-title/:title", async (c) => {
-  const row = await c.env.DB.prepare("SELECT id FROM articles WHERE title_key = ? AND deleted_at IS NULL")
-    .bind(titleKey(c.req.param("title")))
-    .first<{ id: string }>();
-  if (!row) fail(404, "記事が見つかりません");
-  return c.json({ id: row.id });
+  const key = titleKey(c.req.param("title"));
+  const row = await c.env.DB.prepare("SELECT id FROM articles WHERE title_key = ? AND deleted_at IS NULL").bind(key).first<{ id: string }>();
+  if (row) return c.json({ id: row.id });
+  if (c.req.query("references") !== "1") fail(404, "記事が見つかりません");
+  const { results: references } = await c.env.DB.prepare(
+    `SELECT a.id, a.title FROM article_links l JOIN articles a ON a.id = l.source_id
+      WHERE l.target_key = ? AND a.deleted_at IS NULL
+      ORDER BY a.updated_at DESC, a.rowid DESC`,
+  )
+    .bind(key)
+    .all<{ id: string; title: string }>();
+  return c.json({ id: null, references });
 });
 
 articles.get("/:id", async (c) => {
