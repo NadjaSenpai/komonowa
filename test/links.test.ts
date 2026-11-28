@@ -86,4 +86,21 @@ describe("タイトルで記事を引く", () => {
     expect((await client.get(path)).status).toBe(200);
     expect((await admin.get(path)).status).toBe(200);
   });
+
+  it("未作成リンクの参照元を返し、ごみ箱の記事を除く", async () => {
+    const admin = await adminClient();
+    const { client } = await memberClient(admin);
+    const source = await createArticle(client, { title: "新人研修", body: "[[入社準備A]]" });
+    const deleted = await createArticle(client, { title: "旧手順", body: "[[入社準備A]]" });
+    expect((await client.del(`/api/articles/${deleted.id}`)).status).toBe(200);
+    const path = `/api/articles/by-title/${encodeURIComponent("入社準備Ａ")}?references=1`;
+    expect((await new Client().get(path)).status).toBe(401);
+    for (const reader of [client, admin]) {
+      const response = await reader.get(path);
+      expect(response.status).toBe(200);
+      expect(await json(response)).toEqual({ id: null, references: [{ id: source.id, title: source.title }] });
+    }
+    const target = await createArticle(client, { title: "入社準備A" });
+    expect(await json(await client.get(path))).toEqual({ id: target.id });
+  });
 });
